@@ -14,7 +14,7 @@ class MnistDataset:
         self.mnist_path_dir = 'mnist'
         self.datasets_url = 'http://yann.lecun.com/exdb/mnist/'
         self.refresh = False
-        print('Creating mnist directory if not exists...')
+        #print('Creating mnist directory if not exists...')
         os.makedirs(self.mnist_path_dir, exist_ok=True)
         
     def download_file(self, download_file):
