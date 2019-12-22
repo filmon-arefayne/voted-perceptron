@@ -1,28 +1,35 @@
 from utils import (MnistDataset, np)
 import pandas as pd
 import matplotlib.pyplot as plt
+from numba import njit
 
 ########## voted perceptron ############
 
-
+@njit
 def train(X, y, epoch):
     v1 = np.zeros(X.shape[1])
     c1 = 0
-    v = np.array([v1])
-    c = np.array([c1])
+    v = []
+    c = []
+    v.append(v1)
+    c.append(c1)
     # k = 0, v[0] = 0, c[0] = 0
     for _ in range(epoch):
         k = 0
-        for xi, label in zip(X, y):
+        #for xi, label in zip(X, y):
+        # numba don't support nested arrays
+        for i in range(len(y)):
+            xi = X[i]
+            label = y[i] 
             if label == gamma(xi, v[k]):
                 c[k] = c[k] + 1
             else:
-                v = np.append(v, [v[k] + label * xi], axis=0)
-                c = np.append(c, [1], axis=0)
+                v.append(v[k] + label * xi)
+                c.append(1)
                 k = k + 1
     return (v, c)
 
-
+@njit
 def gamma(xi, vk):
     dot_product = np.dot(xi, vk)
     return np.where(dot_product >= 0.0, 1, -1)
@@ -66,7 +73,8 @@ def highest_score(s):
 
 
 def last_unnormalized(v, x):
-    score = np.dot(v[v.shape[0] - 1], x)
+    score = np.dot(v[-1], x)
+    # v[-1] is the last perceptron
     return score
 
 
@@ -89,7 +97,7 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    df_train = pd.DataFrame(X_train, index=range(X_train.shape[0]),
+    """ df_train = pd.DataFrame(X_train, index=range(X_train.shape[0]),
                             columns=range(X_train.shape[1]))
     df_train_label = pd.DataFrame(y_train, index=range(y_train.shape[0]))
 
@@ -114,4 +122,12 @@ if __name__ == "__main__":
 
     v = mnist_train(X=df_train.iloc[0:2000, :].values,
                     y=df_train_label.iloc[0:2000, :].values, epoch=2)
-    print(test_error(v, df_test.iloc[0:200, :].values, y_test[0:200]))
+    print(test_error(v, df_test.iloc[0:200, :].values, y_test[0:200])) """
+
+    epochs = range(1,10)
+    test_errors = []
+    for i in epochs:
+        v = mnist_train(X_train[0:2000, :], y_train[0:2000], i)
+        test_errors.append(test_error(v, X_test[0:200, :], y_test[0:200]))
+    
+    plt.plot(epochs, test_errors)
