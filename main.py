@@ -32,7 +32,7 @@ def train(X, y, epoch):
 @njit
 def gamma(xi, vk):
     dot_product = np.dot(xi, vk)
-    return np.where(dot_product >= 0.0, 1, -1)
+    return 1 if dot_product >= 0.0 else -1
 
 
 def predict(v, c, x):
@@ -40,7 +40,7 @@ def predict(v, c, x):
     s = 0
     for vi, ci in zip(v, c):
         s = s + ci * gamma(x, vi)
-    return np.where(s >= 0.0, 1, -1)
+    return 1 if s >= 0.0 else -1
 
 
 def mnist_train(X, y, epoch):
@@ -127,7 +127,8 @@ if __name__ == "__main__":
     epochs = range(1,10)
     test_errors = []
     for i in epochs:
-        v = mnist_train(X_train[0:2000, :], y_train[0:2000], i)
-        test_errors.append(test_error(v, X_test[0:200, :], y_test[0:200]))
+        v = mnist_train(X_train, y_train, i)
+        test_errors.append(test_error(v, X_test, y_test))
     
     plt.plot(epochs, test_errors)
+    plt.show()
