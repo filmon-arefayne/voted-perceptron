@@ -6,13 +6,13 @@
     kernel_degree : int
         the degree of the polynomial kernel function
 
-    v_label_coeffs : list
+    v_label_coeffs : ndarray
         The label components of the prediction vectors.
 
-    v_train_terms : list
+    v_train_terms : ndarray
         The training case components of the prediction vectors.
 
-    c : list
+    c : ndarray
         The votes for the prediction vectors.
 
     functions
@@ -62,7 +62,7 @@ def train(X, y, epoch):
     for _ in range(epoch):
         # for xi, label in zip(X, y):
         # numba don't support nested arrays
-        for i in range(len(y)):
+        for i in range(X.shape[0]):
             xi = X[i]
             label = y[i]
             # same here i can't use sum over the prediction vector
@@ -82,19 +82,18 @@ def train(X, y, epoch):
     c = c[1:c.shape[0]-1] # TODO i need to fix this!
     return v_train_terms, v_label_coeffs, c
 
-# TODO reduce the number of for loops
 @njit
 def implicit_form_product(v_train_terms, v_label_coeffs, x):
     dot_products = np.empty(v_train_terms.shape[0], dtype=np.float64)
+    v_x = np.empty(v_train_terms.shape[0], dtype=np.float64)
     for i in range(v_train_terms.shape[0]):
         xi = v_train_terms[i]
         yi = v_label_coeffs[i]
         dot_products[i] = yi * polynomial_expansion(xi, x)
-
-    v_x = np.empty(v_train_terms.shape[0], dtype=np.float64)
-    v_x[0] = dot_products[0]
-    for i in range(1, dot_products.shape[0]):
-        v_x[i] = v_x[i - 1] + dot_products[i]
+        if i == 0:
+            v_x[0] = dot_products[0]
+        else:
+            v_x[i] = v_x[i-1] + dot_products[i]
 
     return v_x
 
@@ -161,6 +160,7 @@ def mnist_train_test(X, y, epoch):
     array = []
     for i in tqdm(range(10)):
         array.append(model(X, y, i, epoch))
+        print("number of support vectors:",array[i][0].shape[0])
     return np.array(array)
 
 @njit
