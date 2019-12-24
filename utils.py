@@ -1,5 +1,4 @@
 import numpy as np
-import struct
 import os
 from tqdm import tqdm
 

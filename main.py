@@ -1,13 +1,7 @@
-from utils import (MnistDataset, np)
-import matplotlib.pyplot as plt
-from numba import njit, prange
-from math import copysign
-from tqdm import tqdm
-########## voted perceptron ############
 """
     A python file used to represent the voted perceptron
 
-    functions
+    most common variables
     ----------
     kernel_degree : int
         the degree of the polynomial kernel function
@@ -21,8 +15,19 @@ from tqdm import tqdm
     c : list
         The votes for the prediction vectors.
 
+    functions
+    p.s. most of the function are decorated with njit,
+    njit is the nopython mode of numba and it is the
+    compiled mode (*the code inside those function
+    will be strange and non pythonic*)
+    ----------
     """
 
+from utils import (MnistDataset, np)
+import matplotlib.pyplot as plt
+from numba import njit, prange
+from math import copysign
+from tqdm import tqdm
 
 @njit
 def train(X, y, epoch):
@@ -74,9 +79,10 @@ def train(X, y, epoch):
                 # reset #C_k+1 = 1
                 weight = 1
     c = np.append(c, np.array([weight]), axis=0)
-    c = c[1:c.shape[0]-1] # i need to fix this!
+    c = c[1:c.shape[0]-1] # TODO i need to fix this!
     return v_train_terms, v_label_coeffs, c
 
+# TODO reduce the number of for loops
 @njit
 def implicit_form_product(v_train_terms, v_label_coeffs, x):
     dot_products = np.empty(v_train_terms.shape[0], dtype=np.float64)
@@ -92,21 +98,22 @@ def implicit_form_product(v_train_terms, v_label_coeffs, x):
 
     return v_x
 
+# TODO reduce the number of for loops
 @njit
 def implicit_form_v(v_train_terms, v_label_coeffs):
-    product = []
-    for i in range(len(v_train_terms)):
+    products = np.empty(v_train_terms.shape[0], dtype=np.float64)
+    for i in range(v_train_terms.shape[0]):
         xi = v_train_terms[i]
         yi = v_label_coeffs[i]
-        product.append((yi * xi))
+        products[i] = (yi * xi)
     # i can't use itertools.accumulate and
     # np.add.accumulate(product)
     # is not implemented in numba
     # numba pull #4578
     # we will iterate to create the array
-    v = [product[0]]
-    for i in range(1, len(product)):
-        v.append(v[i-1] + product[i])
+    v = np.empty(v_train_terms.shape[0], dtype=np.float64)
+    for i in range(1, products.shape[0]):
+        v[i] = v[i - 1] + products[i]
 
     return v
 
@@ -133,7 +140,7 @@ def last_normalized(v_train_terms, v_label_coeffs, x):
 
     return normalize(score, implicit_form_v(v_train_terms, v_label_coeffs))
 
-@njit
+#@njit
 def vote(v_train_terms, v_label_coeffs, c, x):
     """Compute score using analog of the deterministic leave-one-out conversion"""
     """ x: unlabeled instance"""
@@ -149,20 +156,12 @@ def vote(v_train_terms, v_label_coeffs, c, x):
 
     return copysign(1, s)
 
-#@njit(parallel = True)
-def mnist_train_test(X, y, epoch, X_test, y_test):
-    print("training the perceptron algorithm on MNIST dataset")
-    #print("{} elements".format(X.shape[0]))
-    #print("{} epochs".format(epoch))
-    print("#####################################################")
-    v_train_terms = []
-    v_label_coeffs = []
-    errors = []
-    for i in tqdm(range(10)):
-        v_t_t, v_l_c, _ = model(X, y, i, epoch)
-        errors.append(test_error(v_t_t, v_l_c, X_test, y_test))
 
-    print("num error", highest_score(errors))
+def mnist_train_test(X, y, epoch):
+    array = []
+    for i in tqdm(range(10)):
+        array.append(model(X, y, i, epoch))
+    return np.array(array)
 
 @njit
 def model(X, y, class_type, epoch):
@@ -171,23 +170,23 @@ def model(X, y, class_type, epoch):
     return train(X, y, epoch)
 
 @njit
+def highest_score_arg(s):
+    return np.argmax(s)
+
 def highest_score(s):
-    return np.argmax(np.array(s))
+    return np.max(s)
 
-@njit
-def test_error(v_train_terms, v_label_coeffs, test, label):
-    scores = []
-    for j in range(len(label)):
-        x = test[j]
-        scores.append(last_unnormalized(v_train_terms, v_label_coeffs, x))
-
-    # numba...
-    # error = np.sum(scores != label)
-    error = 0
-    for i in range(len(label)):
-        if scores[i] != label[i]:
-            error = error + 1
-
+#@njit
+def test_error(models, test, label):
+    scores = np.empty(test.shape[0])
+    j = 0
+    for x in test:
+        s = np.empty(10)
+        for i in range(10):
+            s[i] = last_unnormalized(models[i][0], models[i][1], x)
+        scores[j] = highest_score_arg(s)
+        j = j + 1
+    error = (scores != label).sum()
     return error
 
 @njit
@@ -201,5 +200,9 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    # mnist_train_test(X_train[0:2000, :], y_train[0:2000], 1, X_test, y_test)
-    train(X_train[0:2000, :], y_train[0:2000], 1)
+    print("training the perceptron algorithm on MNIST dataset")
+    models = mnist_train_test(X_train, y_train, 1)
+    print("testing the perceptron algorithm on MNIST dataset")
+    error = test_error(models, X_test, y_test)
+    print(error)
+
