@@ -1,95 +1,199 @@
 from utils import (MnistDataset, np)
-import pandas as pd
 import matplotlib.pyplot as plt
-from numba import njit
-
+from numba import njit, prange
+from math import copysign
+from tqdm import tqdm
 ########## voted perceptron ############
+"""
+    A python file used to represent the voted perceptron
+
+    functions
+    ----------
+    kernel_degree : int
+        the degree of the polynomial kernel function
+
+    v_label_coeffs : list
+        The label components of the prediction vectors.
+
+    v_train_terms : list
+        The training case components of the prediction vectors.
+
+    c : list
+        The votes for the prediction vectors.
+
+    """
+
 
 @njit
 def train(X, y, epoch):
-    v1 = np.zeros(X.shape[1])
-    c1 = 0
-    v = []
-    c = []
-    v.append(v1)
-    c.append(c1)
-    # k = 0, v[0] = 0, c[0] = 0
+    """Train the voted perceptron.
+
+            Parameters
+            ----------
+            X : ndarray
+                An ndarray where each row is a training case of the mnist dataset.
+
+            y : ndarray
+                An ndarray where each element is the label/classification of a
+                training case in train_set for binary classification.
+                Valid label values are -1 and 1.
+
+            epochs : int
+                The number of epochs to train.
+            """
+
+    # prediction vector's xi
+    # v_train_terms = []
+    # prediction vector's labels
+    # v_label_coeffs = []
+    # weights of the prediction vectors
+    c = np.array([1])
+
+    #v1 = np.zeros(X.shape[1])
+    v_train_terms = np.zeros((1,X.shape[1])) # don't call np.array on a np.array var
+    v_label_coeffs = np.array((1,0))
+    # first v = 1*zero_vector
+    weight = 0
     for _ in range(epoch):
-        k = 0
-        #for xi, label in zip(X, y):
+        # for xi, label in zip(X, y):
         # numba don't support nested arrays
         for i in range(len(y)):
             xi = X[i]
-            label = y[i] 
-            if label == gamma(xi, v[k]):
-                c[k] = c[k] + 1
+            label = y[i]
+            # same here i can't use sum over the prediction vector
+            # we need to iterate over a variable
+            # we specify a new function
+            y_hat = copysign(1, implicit_form_product(v_train_terms, v_label_coeffs, xi)[-1])
+            # we take always the last prediction vector's product
+            if y_hat == label:
+                weight = weight + 1
             else:
-                v.append(v[k] + label * xi)
-                c.append(1)
-                k = k + 1
-    return (v, c)
+                c = np.append(c, np.array([weight]), axis=0)
+                v_train_terms = np.append(v_train_terms, np.expand_dims(xi, axis=0), axis=0)
+                v_label_coeffs = np.append(v_label_coeffs, np.array([label]), axis=0)
+                # reset #C_k+1 = 1
+                weight = 1
+    c = np.append(c, np.array([weight]), axis=0)
+    c = c[1:c.shape[0]-1] # i need to fix this!
+    return v_train_terms, v_label_coeffs, c
 
 @njit
-def gamma(xi, vk):
-    dot_product = np.dot(xi, vk)
-    return 1 if dot_product >= 0.0 else -1
+def implicit_form_product(v_train_terms, v_label_coeffs, x):
+    dot_products = np.empty(v_train_terms.shape[0], dtype=np.float64)
+    for i in range(v_train_terms.shape[0]):
+        xi = v_train_terms[i]
+        yi = v_label_coeffs[i]
+        dot_products[i] = yi * polynomial_expansion(xi, x)
 
+    v_x = np.empty(v_train_terms.shape[0], dtype=np.float64)
+    v_x[0] = dot_products[0]
+    for i in range(1, dot_products.shape[0]):
+        v_x[i] = v_x[i - 1] + dot_products[i]
 
-def predict(v, c, x):
-    """ x: unlabeled instance"""
-    s = 0
-    for vi, ci in zip(v, c):
-        s = s + ci * gamma(x, vi)
-    return 1 if s >= 0.0 else -1
+    return v_x
 
-
-def mnist_train(X, y, epoch):
-    print("training the perceptron algorithm on MNIST dataset")
-    print("{} elements".format(X.shape[0]))
-    print("{} epochs".format(epoch))
-    print("#####################################################")
-    v = []
-    for i in range(10):
-        v.append(model(X, y, i, epoch))
+@njit
+def implicit_form_v(v_train_terms, v_label_coeffs):
+    product = []
+    for i in range(len(v_train_terms)):
+        xi = v_train_terms[i]
+        yi = v_label_coeffs[i]
+        product.append((yi * xi))
+    # i can't use itertools.accumulate and
+    # np.add.accumulate(product)
+    # is not implemented in numba
+    # numba pull #4578
+    # we will iterate to create the array
+    v = [product[0]]
+    for i in range(1, len(product)):
+        v.append(v[i-1] + product[i])
 
     return v
 
+@njit
+def last_unnormalized(v_train_terms, v_label_coeffs, x):
+    """Compute score using the final prediction vector(unnormalized)"""
+    """ x: unlabeled instance"""
+    score = implicit_form_product(v_train_terms,v_label_coeffs, x)[-1]
 
+    return score
+
+@njit
+def normalize(score, v):
+    norm = np.linalg.norm(v)
+    if norm == 0:
+        return score
+    return score / norm
+
+@njit
+def last_normalized(v_train_terms, v_label_coeffs, x):
+    """Compute score using the final prediction vector(normalized)"""
+    """ x: unlabeled instance"""
+    score = last_unnormalized(v_train_terms, v_label_coeffs, x)
+
+    return normalize(score, implicit_form_v(v_train_terms, v_label_coeffs))
+
+@njit
+def vote(v_train_terms, v_label_coeffs, c, x):
+    """Compute score using analog of the deterministic leave-one-out conversion"""
+    """ x: unlabeled instance"""
+
+    dot_products = implicit_form_product(v_train_terms, v_label_coeffs, x)
+
+    s = sum(
+        weight
+        * copysign(1, v_x)
+        for weight, v_x
+        in zip(c, dot_products)
+    )
+
+    return copysign(1, s)
+
+#@njit(parallel = True)
+def mnist_train_test(X, y, epoch, X_test, y_test):
+    print("training the perceptron algorithm on MNIST dataset")
+    #print("{} elements".format(X.shape[0]))
+    #print("{} epochs".format(epoch))
+    print("#####################################################")
+    v_train_terms = []
+    v_label_coeffs = []
+    errors = []
+    for i in tqdm(range(10)):
+        v_t_t, v_l_c, _ = model(X, y, i, epoch)
+        errors.append(test_error(v_t_t, v_l_c, X_test, y_test))
+
+    print("num error", highest_score(errors))
+
+@njit
 def model(X, y, class_type, epoch):
-    print('running one against all for the {} class'.format(class_type))
-
     y = np.where(y == class_type, 1, -1)
 
     return train(X, y, epoch)
 
-    #predicted_label = predict(v, c, df_test.iloc[3,:])
-    #true_label = y_test[3]
-    #print("Predicted label: {}".format("0" if predicted_label == 1 else "not zero"))
-    #print("True label: {}".format(true_label))
-
-
+@njit
 def highest_score(s):
     return np.argmax(np.array(s))
 
-
-def last_unnormalized(v, x):
-    score = np.dot(v[-1], x)
-    # v[-1] is the last perceptron
-    return score
-
-
-def test_error(v, test, label):
+@njit
+def test_error(v_train_terms, v_label_coeffs, test, label):
     scores = []
-    for x in test:
-        s = []
-        for i in range(10):
-            s.append(last_unnormalized(v[i][0], x))
-        scores.append(highest_score(s))
-    error = (scores != label).sum()
+    for j in range(len(label)):
+        x = test[j]
+        scores.append(last_unnormalized(v_train_terms, v_label_coeffs, x))
+
+    # numba...
+    # error = np.sum(scores != label)
+    error = 0
+    for i in range(len(label)):
+        if scores[i] != label[i]:
+            error = error + 1
+
     return error
 
-def kernel_function(xi,xj):
-    return 1 + np.dot(xi,xj)
+@njit
+def polynomial_expansion(xi, xj, d=5):
+    return (1 + np.dot(xi, xj)) ** d
+
 
 if __name__ == "__main__":
     md = MnistDataset()
@@ -97,38 +201,5 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    """ df_train = pd.DataFrame(X_train, index=range(X_train.shape[0]),
-                            columns=range(X_train.shape[1]))
-    df_train_label = pd.DataFrame(y_train, index=range(y_train.shape[0]))
-
-    df_test = pd.DataFrame(X_test, index=range(X_test.shape[0]),
-                           columns=range(X_test.shape[1]))
-    df_test_label = pd.DataFrame(y_test, index=range(y_test.shape[0]))
-
-    random_test = np.random.choice(range(100))
-
-    first_image = df_test.iloc[random_test, :]
-    first_label = y_test[random_test]
-    # print(first_image)
-    # print(first_label)
-
-    # 784 columns correspond to 28x28 image
-    plottable_image = np.reshape(first_image.values, (28, 28))
-    # Plot the image
-    plt.imshow(plottable_image, cmap='gray_r')
-    plt.title('Digit Label: {}'.format(first_label))
-
-    plt.show()
-
-    v = mnist_train(X=df_train.iloc[0:2000, :].values,
-                    y=df_train_label.iloc[0:2000, :].values, epoch=2)
-    print(test_error(v, df_test.iloc[0:200, :].values, y_test[0:200])) """
-
-    epochs = range(1,10)
-    test_errors = []
-    for i in epochs:
-        v = mnist_train(X_train, y_train, i)
-        test_errors.append(test_error(v, X_test, y_test))
-    
-    plt.plot(epochs, test_errors)
-    plt.show()
+    # mnist_train_test(X_train[0:2000, :], y_train[0:2000], 1, X_test, y_test)
+    train(X_train[0:2000, :], y_train[0:2000], 1)
