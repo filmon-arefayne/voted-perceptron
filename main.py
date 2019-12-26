@@ -276,7 +276,17 @@ def save_models(models, epoch, kernel_degree):
     for i in tqdm(range(10)):
         pretrained.save_model(models[i],'pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree))
 
-if __name__ == "__main__":
+def load_models(epoch, kernel_degree):
+    print("loading models from models/...")
+    pretrained = Pretrained()
+    array = []
+    if epoch < 1:
+            epoch = '0_1'
+    for i in tqdm(range(10)):
+        array.append(pretrained.load_model('pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree)))
+    return np.array(array)
+
+def experiment():
     md = MnistDataset()
     # split data 
     X_train, y_train = md.train_dataset()
@@ -289,7 +299,17 @@ if __name__ == "__main__":
     print("number of support vector", sup_vect)
     print("number of mistakes", mistakes)
     save_models(models,epoch=0.1,kernel_degree=1)
-    #print("testing the perceptron algorithm on MNIST dataset")
-    #error = test_error(models, X_test, y_test, kernel_degree=1)
-    #perc = error * 100
-    #print("{0:.2f}".format(perc))
+
+if __name__ == "__main__":
+    md = MnistDataset()
+    # split data 
+    X_train, y_train = md.train_dataset()
+
+    X_test, y_test = md.test_dataset()
+    
+    loaded_models = load_models(epoch=0.1,kernel_degree=1)
+
+    print("testing the perceptron algorithm on MNIST dataset")
+    error = test_error(loaded_models, X_test, y_test, kernel_degree=1)
+    perc = error * 100
+    print("{0:.2f}".format(perc))

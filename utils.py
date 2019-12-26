@@ -95,6 +95,7 @@ def download_url(url, output_file):
 
 # _________________________________________________________________________________
 # model save & load
+
 class Pretrained:
     """Pretrained utils"""
 
@@ -112,4 +113,4 @@ class Pretrained:
 
     def load_model(self, filename):
         input_file = os.path.join(self.model_path_dir, filename) + '.pkl'
-        joblib.load(input_file)
+        return joblib.load(input_file)
