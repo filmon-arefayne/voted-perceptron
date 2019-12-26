@@ -361,4 +361,4 @@ if __name__ == "__main__":
     X_test, y_test = md.test_dataset()
 
     for kernel_degree in range(1, 6):
-        freund_shapire_experiment(X_train, y_train, epoch, kernel_degree)
+        freund_shapire_experiment(X_train, y_train, kernel_degree)
