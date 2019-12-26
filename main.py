@@ -25,7 +25,7 @@ main.py
     ----------
     """
 
-from utils import ( 
+from utils import (
     MnistDataset,
     Pretrained,
     np
@@ -93,7 +93,7 @@ def train(X, y, epoch, kernel_degree):
                 weight = 1
                 mistakes = mistakes + 1
     c = np.append(c, np.array([weight]), axis=0)
-    c = c[1:c.shape[0]-1]  # TODO i need to fix this!
+    c = c[1:c.shape[0]]  # TODO i need to fix this!
     return v_train_terms, v_label_coeffs, c, mistakes
 
 
@@ -251,9 +251,9 @@ def model(X, y, class_type, epoch, kernel_degree):
         fraction_x = X[0:int(X.shape[0] / divider),
                        :].copy()  # contiguous arrays
         fraction_y = y[0:int(X.shape[0] / divider)].copy()
-        print(fraction_x.shape[0])
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
+
 
 def test_error(models, test, label, kernel_degree):
     scores = np.empty(test.shape[0])
@@ -262,33 +262,38 @@ def test_error(models, test, label, kernel_degree):
         s = np.empty(10)
         for i in range(10):
             s[i] = last_unnormalized(
-                models[i][0], models[i][1], x, kernel_degree)
+                models[i, 0], models[i, 1], x, kernel_degree)
         scores[j] = highest_score_arg(s)
         j = j + 1
     error = (scores != label).sum() / label.shape[0]
     return error
 
+
 def save_models(models, epoch, kernel_degree):
-    print("saving models in models/...")
+    #print("saving models in models/...")
     pretrained = Pretrained()
     if epoch < 1:
-            epoch = '0_1'
+        epoch = '0_1'
     for i in tqdm(range(10)):
-        pretrained.save_model(models[i],'pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree))
+        pretrained.save_model(
+            models[i], 'pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree))
 
-def load_models(epoch, kernel_degree):
-    print("loading models from models/...")
+
+def load_models(epoch, kernel_degree, same):
+    #print("loading models from models/...")
     pretrained = Pretrained()
     array = []
     if epoch < 1:
-            epoch = '0_1'
+        epoch = '0_1'
     for i in tqdm(range(10)):
-        array.append(pretrained.load_model('pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree)))
+        array.append(pretrained.load_model(
+            'pretrained_c{0}_e{1}_k{2}_{3}'.format(i, epoch, kernel_degree, same)))
     return np.array(array)
+
 
 def experiment():
     md = MnistDataset()
-    # split data 
+    # split data
     X_train, y_train = md.train_dataset()
 
     X_test, y_test = md.test_dataset()
@@ -298,18 +303,45 @@ def experiment():
         X_train, y_train, epoch=0.1, kernel_degree=1)
     print("number of support vector", sup_vect)
     print("number of mistakes", mistakes)
-    save_models(models,epoch=0.1,kernel_degree=1)
+    save_models(models, epoch=0.1, kernel_degree=1)
 
-if __name__ == "__main__":
+
+def train_and_store_10_perm(X_train, y_train, epoch, kernel_degree):
+    print("training 10 permutation")
+    for _ in range(10):
+        arr = np.append(X_train, np.expand_dims(y_train, axis=1), axis=1)
+        X_perm = arr[:, 0:-1].copy()
+        y_perm = arr[:, -1].copy()
+        models = fit(X_perm, y_perm, epoch, kernel_degree)
+        save_models(models, epoch, kernel_degree)
+
+def load_and_test_10_perm(X_test, y:test, epoch, kernel_degree):
+
+    for i in range(10):
+        models = load_models(epoch, kernel_degree, i)
+        test_error(models,X_test,y_train, kernel_degree)
+
+def experiment_l():
     md = MnistDataset()
-    # split data 
+    # split data
     X_train, y_train = md.train_dataset()
 
     X_test, y_test = md.test_dataset()
-    
-    loaded_models = load_models(epoch=0.1,kernel_degree=1)
+
+    loaded_models = load_models(epoch=0.1, kernel_degree=1, same=0)
 
     print("testing the perceptron algorithm on MNIST dataset")
     error = test_error(loaded_models, X_test, y_test, kernel_degree=1)
     perc = error * 100
     print("{0:.2f}".format(perc))
+
+if __name__ == "__main__":
+    md = MnistDataset()
+    # split data
+    X_train, y_train = md.train_dataset()
+
+    X_test, y_test = md.test_dataset()
+
+    train_and_store_10_perm(X,y,0.1,1)
+
+    load_and_test_10_perm(X,y,0.1,1)

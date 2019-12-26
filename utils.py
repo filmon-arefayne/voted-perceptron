@@ -108,9 +108,15 @@ class Pretrained:
             print('Creating models directory')
         except:
             pass
-        output_file = os.path.join(self.model_path_dir, filename) + '.pkl'
+        i = 0
+        output_file = os.path.join(self.model_path_dir, filename) + '_{}.pkl'.format(i)
+        while os.path.isfile(output_file):
+            i = i + 1
+            output_file = os.path.join(self.model_path_dir, filename) + '_{}.pkl'.format(i)
+
         joblib.dump(model, output_file)
 
     def load_model(self, filename):
         input_file = os.path.join(self.model_path_dir, filename) + '.pkl'
         return joblib.load(input_file)
+
