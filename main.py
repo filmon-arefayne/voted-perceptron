@@ -273,22 +273,53 @@ def save_models(models, epoch, kernel_degree):
     #print("saving models in models/...")
     pretrained = Pretrained()
     if epoch < 1:
-        epoch = '0_1'
-    for i in tqdm(range(10)):
-        pretrained.save_model(
-            models[i], 'pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree))
+        epoch = '0_{}'.format(int(epoch * 10))
+    pretrained.save_model(
+        models, 'pretrained_e{0}_k{1}'.format(epoch, kernel_degree))
 
 
 def load_models(epoch, kernel_degree, same):
     #print("loading models from models/...")
     pretrained = Pretrained()
-    array = []
     if epoch < 1:
-        epoch = '0_1'
-    for i in tqdm(range(10)):
-        array.append(pretrained.load_model(
-            'pretrained_c{0}_e{1}_k{2}_{3}'.format(i, epoch, kernel_degree, same)))
-    return np.array(array)
+        epoch = '0_{}'.format(int(epoch * 10))
+    return pretrained.load_model('pretrained_e{0}_k{1}_{2}'.format(epoch, kernel_degree, same))
+
+
+def train_and_store_k_perm(X_train, y_train, epoch, kernel_degree, k):
+    np.random.seed(31415)
+    print("training k permutation")
+    for _ in range(k):
+        arr = np.append(X_train, np.expand_dims(y_train, axis=1), axis=1)
+        arr = np.random.permutation(arr)
+        X_perm = arr[:, 0:-1].copy()
+        y_perm = arr[:, -1].copy()
+        models, _, _ = fit(X_perm, y_perm, epoch, kernel_degree)
+        save_models(models, epoch, kernel_degree)
+
+
+def load_and_test_k_perm(X_test, y_test, epoch, kernel_degree, k):
+    print("loading k permutation and training 10 classes")
+    for i in range(k):
+        models = load_models(epoch, kernel_degree, i)
+        error = test_error(models, X_test, y_test, kernel_degree)
+        perc = error * 100
+        print("{0:.2f}".format(perc))
+
+
+def experiment_l():
+    md = MnistDataset()
+    # split data
+    X_train, y_train = md.train_dataset()
+
+    X_test, y_test = md.test_dataset()
+
+    loaded_models = load_models(epoch=0.1, kernel_degree=1, same=0)
+
+    print("testing the perceptron algorithm on MNIST dataset")
+    error = test_error(loaded_models, X_test, y_test, kernel_degree=1)
+    perc = error * 100
+    print("{0:.2f}".format(perc))
 
 
 def experiment():
@@ -306,39 +337,8 @@ def experiment():
     save_models(models, epoch=0.1, kernel_degree=1)
 
 
-def train_and_store_10_perm(X_train, y_train, epoch, kernel_degree):
-    np.random.seed(31415)
-    print("training 10 permutation")
-    for _ in range(10):
-        arr = np.append(X_train, np.expand_dims(y_train, axis=1), axis=1)
-        arr = np.random.permutation(arr)
-        X_perm = arr[:, 0:-1].copy()
-        y_perm = arr[:, -1].copy()
-        models, _, _ = fit(X_perm, y_perm, epoch, kernel_degree)
-        save_models(models, epoch, kernel_degree)
-
-
-def load_and_test_10_perm(X_test, y_test, epoch, kernel_degree):
-    print("loading 10 permutation and training 10 classes")
-    for i in range(10):
-        models = load_models(epoch, kernel_degree, i)
-        error = test_error(models, X_test, y_test, kernel_degree)
-        perc = error * 100
-        print("{0:.2f}".format(perc))
-
-def experiment_l():
-    md = MnistDataset()
-    # split data
-    X_train, y_train = md.train_dataset()
-
-    X_test, y_test = md.test_dataset()
-
-    loaded_models = load_models(epoch=0.1, kernel_degree=1, same=0)
-
-    print("testing the perceptron algorithm on MNIST dataset")
-    error = test_error(loaded_models, X_test, y_test, kernel_degree=1)
-    perc = error * 100
-    print("{0:.2f}".format(perc))
+def freund_shapire_experiment():
+    pass
 
 
 if __name__ == "__main__":
@@ -348,6 +348,7 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    #train_and_store_10_perm(X_train, y_train, 0.1, 1)
+    for i in range(1, 10):
+        train_and_store_k_perm(X_train, y_train, i/10, 1, 5)
 
-    load_and_test_10_perm(X_test, y_test, 0.1, 1)
+    #load_and_test_k_perm(X_test, y_test, 0.1, 1)
