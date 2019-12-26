@@ -232,7 +232,6 @@ def highest_score(s):
 # model functions
 
 
-@njit
 def fit(X, y, epoch, kernel_degree):
     array = []
     support_vectors = 0
