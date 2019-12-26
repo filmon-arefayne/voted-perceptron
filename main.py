@@ -307,19 +307,24 @@ def experiment():
 
 
 def train_and_store_10_perm(X_train, y_train, epoch, kernel_degree):
+    np.random.seed(31415)
     print("training 10 permutation")
     for _ in range(10):
         arr = np.append(X_train, np.expand_dims(y_train, axis=1), axis=1)
+        arr = np.random.permutation(arr)
         X_perm = arr[:, 0:-1].copy()
         y_perm = arr[:, -1].copy()
-        models = fit(X_perm, y_perm, epoch, kernel_degree)
+        models, _, _ = fit(X_perm, y_perm, epoch, kernel_degree)
         save_models(models, epoch, kernel_degree)
 
-def load_and_test_10_perm(X_test, y:test, epoch, kernel_degree):
 
+def load_and_test_10_perm(X_test, y_test, epoch, kernel_degree):
+    print("loading 10 permutation and training 10 classes")
     for i in range(10):
         models = load_models(epoch, kernel_degree, i)
-        test_error(models,X_test,y_train, kernel_degree)
+        error = test_error(models, X_test, y_test, kernel_degree)
+        perc = error * 100
+        print("{0:.2f}".format(perc))
 
 def experiment_l():
     md = MnistDataset()
@@ -335,6 +340,7 @@ def experiment_l():
     perc = error * 100
     print("{0:.2f}".format(perc))
 
+
 if __name__ == "__main__":
     md = MnistDataset()
     # split data
@@ -342,6 +348,6 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    train_and_store_10_perm(X,y,0.1,1)
+    #train_and_store_10_perm(X_train, y_train, 0.1, 1)
 
-    load_and_test_10_perm(X,y,0.1,1)
+    load_and_test_10_perm(X_test, y_test, 0.1, 1)
