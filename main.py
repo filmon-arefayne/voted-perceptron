@@ -25,7 +25,11 @@ main.py
     ----------
     """
 
-from utils import (MnistDataset, np)
+from utils import ( 
+    MnistDataset,
+    Pretrained,
+    np
+)
 import matplotlib.pyplot as plt
 from numba import njit, prange
 from math import copysign
@@ -264,6 +268,13 @@ def test_error(models, test, label, kernel_degree):
     error = (scores != label).sum() / label.shape[0]
     return error
 
+def save_models(models, epoch, kernel_degree):
+    print("saving models in models/...")
+    pretrained = Pretrained()
+    if epoch < 1:
+            epoch = '0_1'
+    for i in tqdm(range(10)):
+        pretrained.save_model(models[i],'pretrained_c{0}_e{1}_k{2}'.format(i, epoch, kernel_degree))
 
 if __name__ == "__main__":
     md = MnistDataset()
@@ -277,7 +288,8 @@ if __name__ == "__main__":
         X_train, y_train, epoch=0.1, kernel_degree=1)
     print("number of support vector", sup_vect)
     print("number of mistakes", mistakes)
-    print("testing the perceptron algorithm on MNIST dataset")
-    error = test_error(models, X_test, y_test, kernel_degree=1)
-    perc = error * 100
-    print("{0:.2f}".format(perc))
+    save_models(models,epoch=0.1,kernel_degree=1)
+    #print("testing the perceptron algorithm on MNIST dataset")
+    #error = test_error(models, X_test, y_test, kernel_degree=1)
+    #perc = error * 100
+    #print("{0:.2f}".format(perc))
