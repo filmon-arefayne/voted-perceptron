@@ -93,7 +93,7 @@ def train(X, y, epoch, kernel_degree):
                 weight = 1
                 mistakes = mistakes + 1
     c = np.append(c, np.array([weight]), axis=0)
-    c = c[1:c.shape[0]]  # TODO i need to fix this!
+    c = c[1:c.shape[0]]
     return v_train_terms, v_label_coeffs, c, mistakes
 
 
@@ -232,6 +232,7 @@ def highest_score(s):
 # model functions
 
 
+@njit
 def fit(X, y, epoch, kernel_degree):
     array = []
     support_vectors = 0
@@ -337,8 +338,19 @@ def experiment():
     save_models(models, epoch=0.1, kernel_degree=1)
 
 
-def freund_shapire_experiment():
-    pass
+def freund_shapire_experiment(X_train, y_train, kernel_degree):
+
+    # from 0.1 to 0.9
+    for i in range(1, 10):
+        train_and_store_k_perm(X_train, y_train, i/10, kernel_degree, 5)
+
+    # from 1 to 9
+    for i in range(1, 10):
+        train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
+
+    # from 10 to 30
+    for i in range(10, 40, 10):
+        train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
 
 if __name__ == "__main__":
@@ -348,7 +360,5 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    for i in range(1, 10):
-        train_and_store_k_perm(X_train, y_train, i/10, 1, 5)
-
-    #load_and_test_k_perm(X_test, y_test, 0.1, 1)
+    for kernel_degree in range(1, 6):
+        freund_shapire_experiment(X_train, y_train, epoch, kernel_degree)
