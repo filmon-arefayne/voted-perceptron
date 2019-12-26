@@ -263,6 +263,7 @@ def test_error(models, test, label, kernel_degree):
         for i in range(10):
             s[i] = last_unnormalized(
                 models[i, 0], models[i, 1], x, kernel_degree)
+        # Survival Of The Fittest
         scores[j] = highest_score_arg(s)
         j = j + 1
     error = (scores != label).sum() / label.shape[0]
