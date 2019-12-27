@@ -34,7 +34,13 @@ import matplotlib.pyplot as plt
 from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
-
+###############################################################
+#                                                             #
+#                                                             #
+#   TODO: store indices in v_train_terms to save MEMORY       #
+#                                                             #
+#                                                             #
+###############################################################
 
 @njit
 def train(X, y, epoch, kernel_degree):
