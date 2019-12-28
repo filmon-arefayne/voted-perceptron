@@ -11,8 +11,8 @@ main.py
     v_label_coeffs : ndarray
         The label components of the prediction vectors.
 
-    v_train_terms : ndarray
-        The training case components of the prediction vectors.
+    v_train_indices : ndarray
+        The training case indices of the prediction vectors.
 
     c : ndarray
         The votes for the prediction vectors.
@@ -34,13 +34,7 @@ import matplotlib.pyplot as plt
 from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
-###############################################################
-#                                                             #
-#                                                             #
-#   TODO: store indices in v_train_terms to save MEMORY       #
-#                                                             #
-#                                                             #
-###############################################################
+
 
 @njit
 def train(X, y, epoch, kernel_degree):
@@ -61,16 +55,18 @@ def train(X, y, epoch, kernel_degree):
             """
 
     # prediction vector's xi
-    # v_train_terms = []
+    # v_train_indices = []
     # prediction vector's labels
     # v_label_coeffs = []
     # weights of the prediction vectors
-    c = np.array((1, 0))
+    c = np.array((1, 0), dtype=np.int64)
 
     #v1 = np.zeros(X.shape[1])
     # don't call np.array on a np.array var
-    v_train_terms = np.zeros((1, X.shape[1]))
-    v_label_coeffs = np.array((1, 0))
+    v_train_indices = np.array((1, 0), dtype=np.int64)
+    v_label_coeffs = np.array((1, 0), dtype=np.int64)
+    v_train_indices[0] = -1
+    # i will use the negative index as a flag to use np.zeros...
     # first v = 1*zero_vector
     weight = 0
     mistakes = 0
@@ -84,15 +80,15 @@ def train(X, y, epoch, kernel_degree):
             # we need to iterate over a variable
             # we define a new function
             y_hat = copysign(1, implicit_form_product(
-                v_train_terms, v_label_coeffs, xi, kernel_degree)[-1])
+                X, v_train_indices, v_label_coeffs, xi, kernel_degree)[-1])
             # we take always the last prediction vector's product
             # complexity of implicit_form_product is O(k)
             if y_hat == label:
                 weight = weight + 1
             else:
                 c = np.append(c, np.array([weight]), axis=0)
-                v_train_terms = np.append(
-                    v_train_terms, np.expand_dims(xi, axis=0), axis=0)
+                v_train_indices = np.append(
+                    v_train_indices, np.array([i]), axis=0)
                 v_label_coeffs = np.append(
                     v_label_coeffs, np.array([label]), axis=0)
                 # reset #C_k+1 = 1
@@ -100,16 +96,19 @@ def train(X, y, epoch, kernel_degree):
                 mistakes = mistakes + 1
     c = np.append(c, np.array([weight]), axis=0)
     c = c[1:c.shape[0]]
-    return v_train_terms, v_label_coeffs, c, mistakes
+    return v_train_indices, v_label_coeffs, c, mistakes
 
 
-@njit
-def implicit_form_product(v_train_terms, v_label_coeffs, x, kernel_degree):
-    dot_products = np.empty(v_train_terms.shape[0], dtype=np.float64)
-    v_x = np.empty(v_train_terms.shape[0], dtype=np.float64)
-    for i in range(v_train_terms.shape[0]):
-        xi = v_train_terms[i]
+@njit(parallel=True)
+def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
+    dot_products = np.empty(v_train_indices.shape[0], dtype=np.float64)
+    v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
+    for i in range(v_train_indices.shape[0]):
         yi = v_label_coeffs[i]
+        if v_train_indices[i] < 0:
+            xi = np.zeros(X.shape[1])
+        else:
+            xi = X[v_train_indices[i]]
         dot_products[i] = yi * polynomial_expansion(xi, x, kernel_degree)
         if i == 0:
             v_x[0] = dot_products[0]
@@ -120,11 +119,14 @@ def implicit_form_product(v_train_terms, v_label_coeffs, x, kernel_degree):
 
 # TODO reduce the number of for loops
 @njit
-def implicit_form_v(v_train_terms, v_label_coeffs):
-    products = np.empty(v_train_terms.shape[0], dtype=np.float64)
-    for i in range(v_train_terms.shape[0]):
-        xi = v_train_terms[i]
+def implicit_form_v(X, v_train_indices, v_label_coeffs):
+    products = np.empty(v_train_indices.shape[0], dtype=np.float64)
+    for i in range(v_train_indices.shape[0]):
         yi = v_label_coeffs[i]
+        if v_train_indices[i] < 0:
+            xi = np.zeros(X.shape[1])
+        else:
+            xi = X[v_train_indices[i]]
         products[i] = (yi * xi)
 
     # i can't use itertools.accumulate and
@@ -132,7 +134,7 @@ def implicit_form_v(v_train_terms, v_label_coeffs):
     # is not implemented in numba
     # numba pull #4578
     # we will iterate to create the array
-    v = np.empty(v_train_terms.shape[0], dtype=np.float64)
+    v = np.empty(v_train_indices.shape[0], dtype=np.float64)
     for i in range(1, products.shape[0]):
         v[i] = v[i - 1] + products[i]
 
@@ -148,11 +150,11 @@ def polynomial_expansion(xi, xj, d):
 
 
 @njit
-def last_unnormalized(v_train_terms, v_label_coeffs, x, kernel_degree):
+def last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     """Compute score using the final prediction vector(unnormalized)"""
     """ x: unlabeled instance"""
-    score = implicit_form_product(
-        v_train_terms, v_label_coeffs, x, kernel_degree)[-1]
+    score = implicit_form_product(X,
+                                  v_train_indices, v_label_coeffs, x, kernel_degree)[-1]
 
     return score
 
@@ -166,24 +168,25 @@ def normalize(score, v):
 
 
 @njit
-def last_normalized(v_train_terms, v_label_coeffs, x, kernel_degree):
+def last_normalized(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     """Compute score using the final prediction vector(normalized)"""
     """ x: unlabeled instance"""
-    score = last_unnormalized(v_train_terms, v_label_coeffs, x, kernel_degree)
+    score = last_unnormalized(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
 
-    return normalize(score, implicit_form_v(v_train_terms, v_label_coeffs)[-1])
+    return normalize(score, implicit_form_v(X, v_train_indices, v_label_coeffs)[-1])
 
 
 @njit
-def vote(v_train_terms, v_label_coeffs, c, x, kernel_degree):
+def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using analog of the deterministic leave-one-out conversion"""
     """ x: unlabeled instance"""
 
-    dot_products = implicit_form_product(
-        v_train_terms, v_label_coeffs, x, kernel_degree)
+    dot_products = implicit_form_product(X,
+                                         v_train_indices, v_label_coeffs, x, kernel_degree)
 
-    s = np.empty(v_train_terms.shape[0])
-    for i in range(v_train_terms.shape[0]):
+    s = np.empty(v_train_indices.shape[0])
+    for i in range(v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
         s[i] = weight * copysign(1, v_x)
@@ -192,15 +195,15 @@ def vote(v_train_terms, v_label_coeffs, c, x, kernel_degree):
 
 
 @njit
-def avg_unnormalized(v_train_terms, v_label_coeffs, c, x, kernel_degree):
+def avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using an average of the prediction vectors"""
     """ x: unlabeled instance"""
 
-    dot_products = implicit_form_product(
-        v_train_terms, v_label_coeffs, x, kernel_degree)
+    dot_products = implicit_form_product(X,
+                                         v_train_indices, v_label_coeffs, x, kernel_degree)
 
-    s = np.empty(v_train_terms.shape[0])
-    for i in range(v_train_terms.shape[0]):
+    s = np.empty(v_train_indices.shape[0])
+    for i in range(v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
         s[i] = weight * v_x
@@ -209,15 +212,15 @@ def avg_unnormalized(v_train_terms, v_label_coeffs, c, x, kernel_degree):
 
 
 @njit
-def avg_normalized(v_train_terms, v_label_coeffs, c, x, kernel_degree):
+def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using an average of the prediction vectors(normalized)"""
     """ x: unlabeled instance"""
 
-    dot_products = implicit_form_product(
-        v_train_terms, v_label_coeffs, x, kernel_degree)
-    v = implicit_form_v(v_train_terms, v_label_coeffs)
-    s = np.empty(v_train_terms.shape[0])
-    for i in range(v_train_terms.shape[0]):
+    dot_products = implicit_form_product(X,
+                                         v_train_indices, v_label_coeffs, x, kernel_degree)
+    v = implicit_form_v(X, v_train_indices, v_label_coeffs)
+    s = np.empty(v_train_indices.shape[0])
+    for i in range(v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
         s[i] = weight * normalize(v_x, v[i])
@@ -238,15 +241,12 @@ def highest_score(s):
 # model functions
 
 
+@njit(parallel=True)
 def fit(X, y, epoch, kernel_degree):
     array = []
-    support_vectors = 0
-    mistakes = 0
-    for i in tqdm(range(10)):
+    for i in prange(10):
         array.append(model(X, y, i, epoch, kernel_degree))
-        support_vectors = support_vectors + array[i][0].shape[0]
-        mistakes = mistakes + array[i][3]
-    return np.array(array), support_vectors, mistakes
+    return array
 
 
 @njit
@@ -254,26 +254,29 @@ def model(X, y, class_type, epoch, kernel_degree):
     y = np.where(y == class_type, 1, -1)
     if epoch < 1:
         divider = int(epoch * 100)
+        # contiguous arrays
         fraction_x = X[0:int(X.shape[0] / divider),
-                       :].copy()  # contiguous arrays
+                       :].copy()
         fraction_y = y[0:int(X.shape[0] / divider)].copy()
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
 
 
-def test_error(models, test, label, kernel_degree):
+def test_error(X, models, test, label, kernel_degree):
     scores = np.empty(test.shape[0])
     j = 0
     for x in test:
         s = np.empty(10)
         for i in range(10):
             s[i] = last_unnormalized(
-                models[i, 0], models[i, 1], x, kernel_degree)
+                X, models[i, 0], models[i, 1], x, kernel_degree)
         # Survival Of The Fittest
         scores[j] = highest_score_arg(s)
         j = j + 1
     error = (scores != label).sum() / label.shape[0]
     return error
+
+# TODO define SupVect and Mistakes function
 
 
 def save_models(models, epoch, kernel_degree):
@@ -293,6 +296,11 @@ def load_models(epoch, kernel_degree, same):
     return pretrained.load_model('pretrained_e{0}_k{1}_{2}'.format(epoch, kernel_degree, same))
 
 
+def train_and_store(X_train, y_train, epoch, kernel_degree):
+    models = np.array(fit(X_train, y_train, epoch, kernel_degree))
+    save_models(models, epoch, kernel_degree)
+
+
 def train_and_store_k_perm(X_train, y_train, epoch, kernel_degree, k):
     np.random.seed(31415)
     print("training k permutation")
@@ -301,62 +309,55 @@ def train_and_store_k_perm(X_train, y_train, epoch, kernel_degree, k):
         arr = np.random.permutation(arr)
         X_perm = arr[:, 0:-1].copy()
         y_perm = arr[:, -1].copy()
-        models, _, _ = fit(X_perm, y_perm, epoch, kernel_degree)
+        models = fit(X_perm, y_perm, epoch, kernel_degree)
         save_models(models, epoch, kernel_degree)
 
 
-def load_and_test_k_perm(X_test, y_test, epoch, kernel_degree, k):
+def load_and_test_k_perm(X_train, X_test, y_test, epoch, kernel_degree, k):
     print("loading k permutation and training 10 classes")
     for i in range(k):
         models = load_models(epoch, kernel_degree, i)
-        error = test_error(models, X_test, y_test, kernel_degree)
+        error = test_error(X_train, models, X_test, y_test, kernel_degree)
         perc = error * 100
         print("{0:.2f}".format(perc))
 
 
-def experiment_l():
-    md = MnistDataset()
-    # split data
-    X_train, y_train = md.train_dataset()
+def freund_shapire_experiment(X_train, y_train):
 
-    X_test, y_test = md.test_dataset()
+    for kernel_degree in range(1, 6):
+        # from 0.1 to 0.9
+        for i in range(1, 10):
+            train_and_store_k_perm(X_train, y_train, i/10, kernel_degree, 5)
 
-    loaded_models = load_models(epoch=0.1, kernel_degree=1, same=0)
+        # from 1 to 9
+        for i in range(1, 10):
+            train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
-    print("testing the perceptron algorithm on MNIST dataset")
-    error = test_error(loaded_models, X_test, y_test, kernel_degree=1)
-    perc = error * 100
-    print("{0:.2f}".format(perc))
+        # from 10 to 30
+        for i in range(10, 40, 10):
+            train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
 
-def experiment():
-    md = MnistDataset()
-    # split data
-    X_train, y_train = md.train_dataset()
-
-    X_test, y_test = md.test_dataset()
-
+def lightweight_experiment(X_train, y_train):
     print("training the perceptron algorithm on MNIST dataset")
-    models, sup_vect, mistakes = fit(
-        X_train, y_train, epoch=0.1, kernel_degree=1)
-    print("number of support vector", sup_vect)
-    print("number of mistakes", mistakes)
-    save_models(models, epoch=0.1, kernel_degree=1)
-
-
-def freund_shapire_experiment(X_train, y_train, kernel_degree):
 
     # from 0.1 to 0.9
-    for i in range(1, 10):
-        train_and_store_k_perm(X_train, y_train, i/10, kernel_degree, 5)
+    print("epoch: from 0.1 to 0.9")
+    for i in tqdm(range(1, 10)):
+        for kernel_degree in range(1, 6):
+            train_and_store(X_train, y_train, i/10, kernel_degree)
 
     # from 1 to 9
-    for i in range(1, 10):
-        train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
+    print("epoch: from 1 to 9")
+    for i in tqdm(range(1, 10)):
+        for kernel_degree in range(1, 6):
+            train_and_store(X_train, y_train, i, kernel_degree)
 
     # from 10 to 30
-    for i in range(10, 40, 10):
-        train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
+    print("epoch: from 10 to 30")
+    for i in tqdm(range(10, 40, 10)):
+        for kernel_degree in range(1, 6):
+            train_and_store(X_train, y_train, i, kernel_degree)
 
 
 if __name__ == "__main__":
@@ -366,5 +367,4 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    for kernel_degree in range(1, 6):
-        freund_shapire_experiment(X_train, y_train, kernel_degree)
+    lightweight_experiment(X_train, y_train)

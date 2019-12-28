@@ -49,7 +49,7 @@ class MnistDataset:
         except:
             pass
 
-        #Load MNIST dataset from 'path'
+        # Load MNIST dataset from 'path'
         labels_path = self.download_file(
             '{}-labels-idx1-ubyte.gz'.format(train_test))
         images_path = self.download_file(
@@ -81,6 +81,7 @@ class MnistDataset:
 
 class ProgressBar(tqdm):
     """Progress utils"""
+
     def update_to(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
             self.total = tsize
@@ -96,27 +97,29 @@ def download_url(url, output_file):
 # _________________________________________________________________________________
 # model save & load
 
+
 class Pretrained:
     """Pretrained utils"""
 
     def __init__(self):
         self.model_path_dir = 'models'
 
-    def save_model(self,model, filename):
+    def save_model(self, model, filename):
         try:
             os.makedirs(self.model_path_dir, exist_ok=False)
             print('Creating models directory')
         except:
             pass
         i = 0
-        output_file = os.path.join(self.model_path_dir, filename) + '_{}.pkl'.format(i)
+        output_file = os.path.join(
+            self.model_path_dir, filename) + '_{}.pkl'.format(i)
         while os.path.isfile(output_file):
             i = i + 1
-            output_file = os.path.join(self.model_path_dir, filename) + '_{}.pkl'.format(i)
-
-        joblib.dump(model, output_file)
+            output_file = os.path.join(
+                self.model_path_dir, filename) + '_{}.pkl'.format(i)
+        # compression level = 9
+        joblib.dump(model, output_file, 9)
 
     def load_model(self, filename):
         input_file = os.path.join(self.model_path_dir, filename) + '.pkl'
         return joblib.load(input_file)
-
