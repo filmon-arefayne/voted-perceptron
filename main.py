@@ -322,7 +322,7 @@ def load_and_test_k_perm(X_train, X_test, y_test, epoch, kernel_degree, k):
         print("{0:.2f}".format(perc))
 
 
-def freund_shapire_experiment(X_train, y_train):
+def freund_schapire_experiment(X_train, y_train):
 
     for kernel_degree in range(1, 6):
         # from 0.1 to 0.9
