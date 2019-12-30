@@ -397,39 +397,43 @@ def lightweight_training(X_train, y_train):
         for kernel_degree in range(2, 6):
             train_and_store(X_train, y_train, i, kernel_degree)
 
+# TODO add methods choice
+
 
 def lightweight_testing(X_train, X_test, y_test):
     print("testing the perceptron algorithm on MNIST dataset")
     errors = []
-    # from 0.1 to 0.9
-    print("epoch: from 0.1 to 0.9")
-    for i in tqdm(range(1, 10)):
-        for kernel_degree in range(1, 6):
-            errors.append(load_and_test(
+
+    for kernel_degree in range(1, 6):
+        same_kernel_errors = []
+
+        # from 0.1 to 0.9
+        print("epoch: from 0.1 to 0.9")
+        for i in tqdm(range(1, 10)):
+            same_kernel_errors.append(load_and_test(
                 X_train, X_test, y_test, i, kernel_degree))
 
-    # from 1 to 9
-    print("epoch: from 1 to 9")
-    for i in tqdm(range(1, 10)):
-        for kernel_degree in range(1, 6):
-            errors.append(load_and_test(
+        # from 1 to 9
+        print("epoch: from 1 to 9")
+        for i in tqdm(range(1, 10)):
+            same_kernel_errors.append(load_and_test(
                 X_train, X_test, y_test, i, kernel_degree))
 
-    # 10 the last width kernel 1
-    print("epoch: 10")
-    for i in tqdm(range(10, 11)):
-        for kernel_degree in range(1, 6):
-            errors.append(load_and_test(
+        # 10 the last width kernel 1
+        print("epoch: 10")
+        for i in tqdm(range(10, 11)):
+            same_kernel_errors.append(load_and_test(
                 X_train, X_test, y_test, i, kernel_degree))
 
-    # from 20 to 30
-    print("epoch: from 20 to 30")
-    for i in tqdm(range(20, 40, 10)):
-        for kernel_degree in range(2, 6):
-            errors.append(load_and_test(
+        # from 20 to 30
+        print("epoch: from 20 to 30")
+        for i in tqdm(range(20, 40, 10)):
+            same_kernel_errors.append(load_and_test(
                 X_train, X_test, y_test, i, kernel_degree))
+        errors.append(same_kernel_errors)
 
     return errors
+
 
 def lightweight_experiment():
     md = MnistDataset()
@@ -439,9 +443,32 @@ def lightweight_experiment():
     X_test, y_test = md.test_dataset()
 
     lightweight_training(X_train, y_train)
-    
+
     errors = lightweight_testing(X_train, X_test, y_test)
 
 
+def simple_plot(errors, kernel_degree):
+    # range concat
+    #x = list(range(0.1, 1, 0.1) + range(1, 11))
+    x = list(range(0.1, 1, 0.1))
+    plt.style.use('seaborn')
+    plt.plot(x, errors,label='last(unorm)', marker=11)
+    plt.xlabel('Epoch')
+    plt.ylabel('Test Error')
+    plt.title('d={}'.format(kernel_degree))
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
-    pass
+    md = MnistDataset()
+    # split data
+    X_train, y_train = md.train_dataset()
+
+    X_test, y_test = md.test_dataset()
+    
+    errors = []
+    # from 0.1 to 0.9
+    print("epoch: from 0.1 to 0.9 kernel:1")
+    for i in tqdm(range(1, 10)):
+        errors.append(load_and_test(X_train, X_test, y_test, i, 1))
+    simple_plot()
