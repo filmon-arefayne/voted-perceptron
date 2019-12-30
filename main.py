@@ -452,12 +452,13 @@ def simple_plot(errors, kernel_degree):
     #x = list(range(0.1, 1, 0.1) + range(1, 11))
     x = list(range(0.1, 1, 0.1))
     plt.style.use('seaborn')
-    plt.plot(x, errors,label='last(unorm)', marker=11)
+    plt.plot(x, errors, label='last(unorm)', marker=11)
     plt.xlabel('Epoch')
     plt.ylabel('Test Error')
     plt.title('d={}'.format(kernel_degree))
     plt.legend()
     plt.show()
+
 
 if __name__ == "__main__":
     md = MnistDataset()
@@ -465,10 +466,11 @@ if __name__ == "__main__":
     X_train, y_train = md.train_dataset()
 
     X_test, y_test = md.test_dataset()
-    
+
     errors = []
+    kernel = 1
     # from 0.1 to 0.9
-    print("epoch: from 0.1 to 0.9 kernel:1")
+    print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
     for i in tqdm(range(1, 10)):
-        errors.append(load_and_test(X_train, X_test, y_test, i, 1))
-    simple_plot()
+        errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
+    simple_plot(errors, kernel)
