@@ -441,8 +441,7 @@ def lightweight_experiment():
     errors = lightweight_testing(X_train, X_test, y_test)
 
 
-def simple_plot(errors, kernel_degree):
-    x = np.arange(0.1, 1, 0.1).tolist()
+def simple_plot(errors, x, kernel_degree):
     plt.style.use('seaborn')
     plt.plot(x, errors, label='last(unorm)', marker=11)
     plt.xlabel('Epoch')
@@ -460,9 +459,15 @@ if __name__ == "__main__":
     X_test, y_test = md.test_dataset()
 
     errors = []
-    kernel = 1
+    kernel = 4
     # from 0.1 to 0.9
     print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
-    for i in tqdm(range(1, 10)):
-        errors.append(load_and_test(X_train, X_test, y_test, i/10, kernel))
-    simple_plot(errors, kernel)
+    x1 = np.arange(0.1, 1, 0.1)
+    x2 = np.arange(1,11)
+    for i in tqdm(x1):
+        errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
+    print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    for i in tqdm(x2):
+        errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
+
+    simple_plot(errors, np.concatenate((x1,x2)), kernel)
