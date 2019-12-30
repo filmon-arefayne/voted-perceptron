@@ -117,7 +117,7 @@ def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
 
     return v_x
 
-# TODO reduce the number of for loops
+
 @njit
 def implicit_form_v(X, v_train_indices, v_label_coeffs):
     products = np.empty(v_train_indices.shape[0], dtype=np.float64)
@@ -227,7 +227,37 @@ def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 
     return s
 
-# TODO random method
+
+@njit
+def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
+    """Compute score using analog of the randomized leave-one-out 
+    method in which we predict using the prediction vectors 
+    that exist at a randomly chosen “time slice.”"""
+    """ x: unlabeled instance"""
+    t = np.sum(c)
+    # time slice
+    r = np.random.random_integers(low=0, high=t)  # inclusive(low and high)
+
+    score = implicit_form_product(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)[r]
+
+    return score
+
+
+@njit
+def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
+    """Compute score using analog of the randomized leave-one-out 
+    method in which we predict using the prediction vectors 
+    that exist at a randomly chosen “time slice.(normalized)”"""
+    """ x: unlabeled instance"""
+    t = np.sum(c)
+    # time slice
+    r = np.random.random_integers(low=0, high=t)  # inclusive(low and high)
+
+    score = implicit_form_product(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)[r]
+
+    return normalize(score, implicit_form_v(X, v_train_indices, v_label_coeffs)[r])
 
 
 @njit
