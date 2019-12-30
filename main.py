@@ -30,7 +30,12 @@ from utils import (
     Pretrained,
     np
 )
+from matplotlib import rc
+rc('text', usetex=True)
+rc('font', size=20)
+
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
@@ -293,20 +298,40 @@ def model(X, y, class_type, epoch, kernel_degree):
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
 
+@njit(parallel=True)
+def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
+    s_random = random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
+    s_last = last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree)
+    s_avg = avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
+    s_vote = vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
+
+    return s_random, s_last, s_avg, s_vote
 
 def test_error(X, models, test, label, kernel_degree):
-    scores = np.empty(test.shape[0])
+    scores_random = np.empty(test.shape[0])
+    scores_last = np.empty(test.shape[0])
+    scores_avg = np.empty(test.shape[0])
+    scores_vote = np.empty(test.shape[0])
     j = 0
     for x in test:
-        s = np.empty(10)
+        s_random = np.empty(10)
+        s_last = np.empty(10)
+        s_avg = np.empty(10)
+        s_vote = np.empty(10)
         for i in range(10):
-            s[i] = last_unnormalized(
-                X, models[i, 0], models[i, 1], x, kernel_degree)
+            s_random[i], s_last[i], s_avg[i], s_vote[i] = predictions(X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree)
         # Survival Of The Fittest
-        scores[j] = highest_score_arg(s)
+        scores_random[j] = highest_score_arg(s_random)
+        scores_last[j] = highest_score_arg(s_last)
+        scores_avg[j] = highest_score_arg(s_avg)
+        scores_vote[j] = highest_score_arg(s_vote)
         j = j + 1
-    error = np.sum(scores != label) / label.shape[0]
-    return error
+    error_random = np.sum(scores_random != label) / label.shape[0]
+    error_last = np.sum(scores_last != label) / label.shape[0]
+    error_avg = np.sum(scores_avg != label) / label.shape[0]
+    error_vote = np.sum(scores_vote != label) / label.shape[0]
+
+    return error_random, error_last, error_avg, error_vote
 
 # TODO define SupVect and Mistakes function
 
@@ -475,13 +500,32 @@ def lightweight_experiment():
 
 def simple_plot(errors, x, kernel_degree):
     plt.style.use('seaborn')
-    plt.plot(x, errors, label='last(unorm)', marker=11)
+    plt.plot(x, errors, label='last(unorm)')
     plt.xlabel('Epoch')
     plt.ylabel('Test Error')
     plt.title('d={}'.format(kernel_degree))
     plt.legend()
     plt.show()
 
+def log_plot(errors, x, kernel_degree):
+    """ errors should contains:
+        - error_random,
+        - error_last,
+        - error_avg,
+        - error_vote
+    """
+    plt.style.use('seaborn')
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111)
+    ax.semilogx(x, errors[0], label='random(unorm)')
+    ax.semilogx(x, errors[1], label='last(unorm)')
+    ax.semilogx(x, errors[4], label='avg(unorm)')
+    ax.semilogx(x, errors[5], label='vote')
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.set_title('d={}'.format(kernel_degree))
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Test Error')
+    plt.show()
 
 if __name__ == "__main__":
     md = MnistDataset()
@@ -502,4 +546,4 @@ if __name__ == "__main__":
     for i in tqdm(x2):
         errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
 
-    simple_plot(errors, np.concatenate((x1, x2)), kernel)
+    log_plot(errors, np.concatenate((x1, x2)), kernel)
