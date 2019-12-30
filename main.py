@@ -302,7 +302,7 @@ def model(X, y, class_type, epoch, kernel_degree):
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
 
-@njit(parallel=True)
+@njit
 def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     s_random = random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     s_last = last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree)
@@ -551,3 +551,4 @@ if __name__ == "__main__":
         errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
 
     log_plot(errors, np.concatenate((x1, x2)), kernel)
+    
