@@ -262,7 +262,7 @@ def model(X, y, class_type, epoch, kernel_degree):
     return train(X, y, epoch, kernel_degree)
 
 #TODO: parallelize
-@njit(parallel=True)
+#@njit(parallel=True)
 def parallel_test(X, models, test, label, kernel_degree):
     scores = np.empty(test.shape[0])
     j = 0
@@ -311,7 +311,7 @@ def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     models = load_models(epoch, kernel_degree, same)
     error = test_error(X_train, models, X_test, y_test, kernel_degree)
     perc = error * 100
-    print("{0:.2f}".format(perc))
+    #print("{0:.2f}".format(perc))
     return perc
 
 
@@ -411,7 +411,7 @@ def lightweight_testing(X_train, X_test, y_test):
         print("epoch: from 0.1 to 0.9")
         for i in tqdm(range(1, 10)):
             same_kernel_errors.append(load_and_test(
-                X_train, X_test, y_test, i, kernel_degree))
+                X_train, X_test, y_test, i/10, kernel_degree))
 
         # from 1 to 9
         print("epoch: from 1 to 9")
@@ -448,9 +448,7 @@ def lightweight_experiment():
 
 
 def simple_plot(errors, kernel_degree):
-    # range concat
-    #x = list(range(0.1, 1, 0.1) + range(1, 11))
-    x = list(range(0.1, 1, 0.1))
+    x = np.arange(0.1, 1, 0.1).tolist()
     plt.style.use('seaborn')
     plt.plot(x, errors, label='last(unorm)', marker=11)
     plt.xlabel('Epoch')
@@ -472,5 +470,5 @@ if __name__ == "__main__":
     # from 0.1 to 0.9
     print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
     for i in tqdm(range(1, 10)):
-        errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
+        errors.append(load_and_test(X_train, X_test, y_test, i/10, kernel))
     simple_plot(errors, kernel)
