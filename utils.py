@@ -107,7 +107,7 @@ class Pretrained:
     def save_model(self, model, filename):
         try:
             os.makedirs(self.model_path_dir, exist_ok=False)
-            print('Creating models directory')
+            #print('Creating models directory')
         except:
             pass
         i = 0

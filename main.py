@@ -262,7 +262,8 @@ def model(X, y, class_type, epoch, kernel_degree):
     return train(X, y, epoch, kernel_degree)
 
 #TODO: parallelize
-def test_error(X, models, test, label, kernel_degree):
+@njit(parallel=True)
+def parallel_test(X, models, test, label, kernel_degree):
     scores = np.empty(test.shape[0])
     j = 0
     for x in test:
@@ -273,6 +274,11 @@ def test_error(X, models, test, label, kernel_degree):
         # Survival Of The Fittest
         scores[j] = highest_score_arg(s)
         j = j + 1
+    return scores
+
+
+def test_error(X, models, test, label, kernel_degree):
+    scores = parallel_test(X, models, test, label, kernel_degree)
     error = (scores != label).sum() / label.shape[0]
     return error
 
@@ -301,6 +307,14 @@ def train_and_store(X_train, y_train, epoch, kernel_degree):
     save_models(models, epoch, kernel_degree)
 
 
+def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
+    models = load_models(epoch, kernel_degree, same)
+    error = test_error(X_train, models, X_test, y_test, kernel_degree)
+    perc = error * 100
+    print("{0:.2f}".format(perc))
+    return perc
+
+
 def train_and_store_k_perm(X_train, y_train, epoch, kernel_degree, k):
     np.random.seed(31415)
     print("training k permutation")
@@ -323,29 +337,40 @@ def load_and_test_k_perm(X_train, X_test, y_test, epoch, kernel_degree, k):
 
 
 def freund_schapire_experiment(X_train, y_train):
+    freund_schapire_training(X_train, y_train)
+    # TODO
+    #freund_schapire_testing(X_test, y_test)
+
+
+def freund_schapire_training(X_train, y_train):
+    print("training the perceptron algorithm on MNIST dataset")
 
     # from 0.1 to 0.9
+    print("epoch: from 0.1 to 0.9")
     for i in range(1, 10):
         for kernel_degree in range(1, 6):
             train_and_store_k_perm(X_train, y_train, i/10, kernel_degree, 5)
 
     # from 1 to 9
+    print("epoch: from 1 to 9")
     for i in range(1, 10):
         for kernel_degree in range(1, 6):
             train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
     # 10 the last width kernel 1
+    print("epoch: 10")
     for i in range(10, 11):
         for kernel_degree in range(1, 6):
             train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
-            
+
     # from 20 to 30
+    print("epoch: from 20 to 30")
     for i in range(20, 40, 10):
         for kernel_degree in range(2, 6):
             train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
 
-def lightweight_experiment(X_train, y_train):
+def lightweight_training(X_train, y_train):
     print("training the perceptron algorithm on MNIST dataset")
 
     # from 0.1 to 0.9
@@ -362,7 +387,7 @@ def lightweight_experiment(X_train, y_train):
 
     # 10 the last width kernel 1
     print("epoch: 10")
-    for i in tqdm(range(10,11)):
+    for i in tqdm(range(10, 11)):
         for kernel_degree in range(1, 6):
             train_and_store(X_train, y_train, i, kernel_degree)
 
@@ -373,15 +398,50 @@ def lightweight_experiment(X_train, y_train):
             train_and_store(X_train, y_train, i, kernel_degree)
 
 
-if __name__ == "__main__":
+def lightweight_testing(X_train, X_test, y_test):
+    print("testing the perceptron algorithm on MNIST dataset")
+    errors = []
+    # from 0.1 to 0.9
+    print("epoch: from 0.1 to 0.9")
+    for i in tqdm(range(1, 10)):
+        for kernel_degree in range(1, 6):
+            errors.append(load_and_test(
+                X_train, X_test, y_test, i, kernel_degree))
+
+    # from 1 to 9
+    print("epoch: from 1 to 9")
+    for i in tqdm(range(1, 10)):
+        for kernel_degree in range(1, 6):
+            errors.append(load_and_test(
+                X_train, X_test, y_test, i, kernel_degree))
+
+    # 10 the last width kernel 1
+    print("epoch: 10")
+    for i in tqdm(range(10, 11)):
+        for kernel_degree in range(1, 6):
+            errors.append(load_and_test(
+                X_train, X_test, y_test, i, kernel_degree))
+
+    # from 20 to 30
+    print("epoch: from 20 to 30")
+    for i in tqdm(range(20, 40, 10)):
+        for kernel_degree in range(2, 6):
+            errors.append(load_and_test(
+                X_train, X_test, y_test, i, kernel_degree))
+
+    return errors
+
+def lightweight_experiment():
     md = MnistDataset()
     # split data
     X_train, y_train = md.train_dataset()
 
     X_test, y_test = md.test_dataset()
 
-    # from 20 to 30
-    print("epoch: from 20 to 30")
-    for i in tqdm(range(20, 40, 10)):
-        for kernel_degree in range(2, 6):
-            train_and_store(X_train, y_train, i, kernel_degree)
+    lightweight_training(X_train, y_train)
+    
+    errors = lightweight_testing(X_train, X_test, y_test)
+
+
+if __name__ == "__main__":
+    pass
