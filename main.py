@@ -196,7 +196,7 @@ def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
         v_x = dot_products[i]
         s[i] = weight * copysign(1, v_x)
 
-    return s
+    return np.sum(s)
 
 
 @njit
@@ -213,7 +213,7 @@ def avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
         v_x = dot_products[i]
         s[i] = weight * v_x
 
-    return s
+    return np.sum(s)
 
 
 @njit
@@ -230,7 +230,7 @@ def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
         v_x = dot_products[i]
         s[i] = weight * normalize(v_x, v[i])
 
-    return s
+    return np.sum(s)
 
 
 @njit
