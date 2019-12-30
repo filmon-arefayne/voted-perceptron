@@ -324,17 +324,24 @@ def load_and_test_k_perm(X_train, X_test, y_test, epoch, kernel_degree, k):
 
 def freund_schapire_experiment(X_train, y_train):
 
-    for kernel_degree in range(1, 6):
-        # from 0.1 to 0.9
-        for i in range(1, 10):
+    # from 0.1 to 0.9
+    for i in range(1, 10):
+        for kernel_degree in range(1, 6):
             train_and_store_k_perm(X_train, y_train, i/10, kernel_degree, 5)
 
-        # from 1 to 9
-        for i in range(1, 10):
+    # from 1 to 9
+    for i in range(1, 10):
+        for kernel_degree in range(1, 6):
             train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
-        # from 10 to 30
-        for i in range(10, 40, 10):
+    # 10 the last width kernel 1
+    for i in range(10, 11):
+        for kernel_degree in range(1, 6):
+            train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
+            
+    # from 20 to 30
+    for i in range(20, 40, 10):
+        for kernel_degree in range(2, 6):
             train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
 
 
@@ -353,10 +360,16 @@ def lightweight_experiment(X_train, y_train):
         for kernel_degree in range(1, 6):
             train_and_store(X_train, y_train, i, kernel_degree)
 
-    # from 10 to 30
-    print("epoch: from 10 to 30")
-    for i in tqdm(range(10, 40, 10)):
+    # 10 the last width kernel 1
+    print("epoch: 10")
+    for i in tqdm(range(10,11)):
         for kernel_degree in range(1, 6):
+            train_and_store(X_train, y_train, i, kernel_degree)
+
+    # from 20 to 30
+    print("epoch: from 20 to 30")
+    for i in tqdm(range(20, 40, 10)):
+        for kernel_degree in range(2, 6):
             train_and_store(X_train, y_train, i, kernel_degree)
 
 
@@ -367,4 +380,8 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    lightweight_experiment(X_train, y_train)
+    # from 20 to 30
+    print("epoch: from 20 to 30")
+    for i in tqdm(range(20, 40, 10)):
+        for kernel_degree in range(2, 6):
+            train_and_store(X_train, y_train, i, kernel_degree)
