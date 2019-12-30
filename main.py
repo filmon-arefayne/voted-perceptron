@@ -275,7 +275,7 @@ def test_error(X, models, test, label, kernel_degree):
         # Survival Of The Fittest
         scores[j] = highest_score_arg(s)
         j = j + 1
-    error = (scores != label).sum() / label.shape[0]
+    error = np.sum(scores != label) / label.shape[0]
     return error
 
 # TODO define SupVect and Mistakes function
