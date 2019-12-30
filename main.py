@@ -261,7 +261,7 @@ def model(X, y, class_type, epoch, kernel_degree):
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
 
-
+#TODO: parallelize
 def test_error(X, models, test, label, kernel_degree):
     scores = np.empty(test.shape[0])
     j = 0
