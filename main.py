@@ -261,9 +261,8 @@ def model(X, y, class_type, epoch, kernel_degree):
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
 
-#TODO: parallelize
-#@njit(parallel=True)
-def parallel_test(X, models, test, label, kernel_degree):
+
+def test_error(X, models, test, label, kernel_degree):
     scores = np.empty(test.shape[0])
     j = 0
     for x in test:
@@ -274,11 +273,6 @@ def parallel_test(X, models, test, label, kernel_degree):
         # Survival Of The Fittest
         scores[j] = highest_score_arg(s)
         j = j + 1
-    return scores
-
-
-def test_error(X, models, test, label, kernel_degree):
-    scores = parallel_test(X, models, test, label, kernel_degree)
     error = (scores != label).sum() / label.shape[0]
     return error
 
@@ -311,7 +305,7 @@ def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     models = load_models(epoch, kernel_degree, same)
     error = test_error(X_train, models, X_test, y_test, kernel_degree)
     perc = error * 100
-    #print("{0:.2f}".format(perc))
+    # print("{0:.2f}".format(perc))
     return perc
 
 
