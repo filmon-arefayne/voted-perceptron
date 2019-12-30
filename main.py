@@ -257,7 +257,10 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """ x: unlabeled instance"""
     t = np.sum(c)
     # time slice
-    r = np.random.random_integers(low=0, high=t)  # inclusive(low and high)
+    # np.random.random_integers(low=0, high=t)  inclusive(low and high)
+    # numba doesn't support random_integers
+    # randint is exclusive
+    r = np.random.randint(t+1)
 
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)[r]
