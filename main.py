@@ -40,6 +40,11 @@ from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
 
+# helped me with ghost Runtime Error caused by latex
+# RuntimeError: Failed to process string with tex because latex could not be found
+# XXX maybe i will remove latex in the final version
+import faulthandler 
+faulthandler.enable()
 
 @njit
 def train(X, y, epoch, kernel_degree):
@@ -364,10 +369,13 @@ def train_and_store(X_train, y_train, epoch, kernel_degree):
 
 def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     models = load_models(epoch, kernel_degree, same)
-    error = test_error(X_train, models, X_test, y_test, kernel_degree)
-    perc = error * 100
+    e_r, e_l, e_a, e_v = test_error(X_train, models, X_test, y_test, kernel_degree)
+    perc_r = e_r * 100
+    perc_l = e_l * 100
+    perc_a = e_a * 100
+    perc_v = e_v * 100
     # print("{0:.2f}".format(perc))
-    return perc
+    return perc_r, perc_l, perc_a, perc_v
 
 
 def train_and_store_k_perm(X_train, y_train, epoch, kernel_degree, k):
@@ -511,7 +519,7 @@ def simple_plot(errors, x, kernel_degree):
     plt.legend()
     plt.show()
 
-def log_plot(errors, x, kernel_degree):
+def log_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
     """ errors should contains:
         - error_random,
         - error_last,
@@ -521,10 +529,10 @@ def log_plot(errors, x, kernel_degree):
     plt.style.use('seaborn')
     fig = plt.figure(figsize=(10, 6))
     ax = fig.add_subplot(111)
-    ax.semilogx(x, errors[0], label='random(unorm)')
-    ax.semilogx(x, errors[1], label='last(unorm)')
-    ax.semilogx(x, errors[4], label='avg(unorm)')
-    ax.semilogx(x, errors[5], label='vote')
+    ax.semilogx(x, error_random, label='random(unorm)')
+    ax.semilogx(x, error_last, label='last(unorm)')
+    ax.semilogx(x, error_avg, label='avg(unorm)')
+    ax.semilogx(x, error_vote, label='vote')
     ax.xaxis.set_major_formatter(ScalarFormatter())
     ax.set_title('d={}'.format(kernel_degree))
     ax.set_xlabel('Epoch')
@@ -538,17 +546,24 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    errors = []
+    error_random = []
+    error_last = [] 
+    error_avg = [] 
+    error_vote = []
     kernel = 4
     # from 0.1 to 0.9
     print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
     x1 = np.arange(0.1, 1, 0.1)
     x2 = np.arange(1, 11)
     for i in tqdm(x1):
-        errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
-    print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    for i in tqdm(x2):
-        errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
-
-    log_plot(errors, np.concatenate((x1, x2)), kernel)
+        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
+    #print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    #for i in tqdm(x2):
+    #    errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
+    #np.concatenate((x1, x2))
+    log_plot(x1, error_random, error_last, error_avg, error_vote, kernel)
     
