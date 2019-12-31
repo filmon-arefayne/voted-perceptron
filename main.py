@@ -30,9 +30,9 @@ from utils import (
     Pretrained,
     np
 )
-#from matplotlib import rc
-#rc('text', usetex=True)
-#rc('font', size=20)
+# from matplotlib import rc
+# rc('text', usetex=True)
+# rc('font', size=20)
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -40,12 +40,13 @@ from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
 
-import faulthandler 
+import faulthandler
+
 faulthandler.enable()
 
-# FIXME refactoring
+
 @njit
-def train(X, y, epoch, kernel_degree):
+def train(X, y, epochs, kernel_degree):
     """Train the voted perceptron.
 
             Parameters
@@ -60,6 +61,9 @@ def train(X, y, epoch, kernel_degree):
 
             epochs : int
                 The number of epochs to train.
+
+            kernel_degree: int
+                The number of the degree in the polynomial kernel
             """
 
     # prediction vector's xi
@@ -67,18 +71,16 @@ def train(X, y, epoch, kernel_degree):
     # prediction vector's labels
     # v_label_coeffs = []
     # weights of the prediction vectors
-    c = np.array((1, 0), dtype=np.int64)
 
-    #v1 = np.zeros(X.shape[1])
+    # v1 = np.zeros(X.shape[1])
     # don't call np.array on a np.array var
     v_train_indices = np.array((1, 0), dtype=np.int64)
     v_label_coeffs = np.array((1, 0), dtype=np.int64)
-    v_train_indices[0] = -1
-    # i will use the negative index as a flag to use np.zeros...
-    # first v = 1*zero_vector
+    c = np.array((1, 0), dtype=np.int64)
+
     weight = 0
     mistakes = 0
-    for _ in range(epoch):
+    for _ in range(epochs):
         # for xi, label in zip(X, y):
         # numba don't support nested arrays
         for i in range(X.shape[0]):
@@ -103,49 +105,32 @@ def train(X, y, epoch, kernel_degree):
                 weight = 1
                 mistakes = mistakes + 1
     c = np.append(c, np.array([weight]), axis=0)
-    c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
 
-# FIXME refactoring
+
 @njit(parallel=True)
 def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
-    dot_products = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    for k in range(v_train_indices.shape[0]):
-        if v_train_indices[k] < 0:
-            xi = np.zeros(X.shape[1])
-            yi = 1
-        else:
-            xi = X[v_train_indices[k]]
-            yi = v_label_coeffs[k]
-        dot_products[k] = yi * polynomial_expansion(xi, x, kernel_degree)
-
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    v_x[0] = dot_products[0]
-    for k in range(1, dot_products.shape[0]):
-        v_x[k] = v_x[k - 1] + dot_products[k]
+    # the first dot_product is y0 = 1 *polynomial_expansion(x0 = 0_vect,x)
+    v_x[0] = polynomial_expansion(np.zeros(X.shape[1]), x, kernel_degree)
+    for k in range(1, v_train_indices.shape[0]):
+        xi = X[v_train_indices[k]]
+        yi = v_label_coeffs[k]
+        v_x[k] = v_x[k - 1] +  yi * polynomial_expansion(xi, x, kernel_degree)
+
     return v_x
 
 
 @njit(parallel=True)
 def implicit_form_v(X, v_train_indices, v_label_coeffs):
-    products = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    for k in range(v_train_indices.shape[0]):
-        yi = v_label_coeffs[k]
-        if v_train_indices[k] < 0:
-            xi = np.zeros(X.shape[1])
-        else:
-            xi = X[v_train_indices[k]]
-        products[k] = (yi * xi)
-
-    # i can't use itertools.accumulate and
-    # np.add.accumulate(product)
-    # is not implemented in numba
-    # numba pull #4578
-    # we will iterate to create the array
     v = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    v[0] = products[0]
-    for k in range(1, products.shape[0]):
-        v[k] = v[k - 1] + products[k]
+    # v0
+    v[0] = 0
+    # the first product is y0 = 1 * x0 = 0_vect
+    for k in range(1, v_train_indices.shape[0]):
+        yi = v_label_coeffs[k]
+        xi = X[v_train_indices[k]]
+        v[k] = v[k - 1] + (yi * xi)
 
     return v
 
@@ -153,6 +138,7 @@ def implicit_form_v(X, v_train_indices, v_label_coeffs):
 @njit
 def polynomial_expansion(xi, xj, d):
     return (1 + np.dot(xi, xj)) ** d
+
 
 # _________________________________________________________________________________
 # prediction functions
@@ -236,6 +222,7 @@ def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 
     return np.sum(s)
 
+
 @njit
 def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using analog of the randomized leave-one-out 
@@ -244,7 +231,7 @@ def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     """ x: unlabeled instance"""
     t = np.sum(c)
     # time slice
-    r = np.random.randint(t+1)
+    r = np.random.randint(t + 1)
 
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
@@ -262,7 +249,7 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     # np.random.random_integers(low=0, high=t)  inclusive(low and high)
     # numba doesn't support random_integers
     # randint is exclusive
-    r = np.random.randint(t+1)
+    r = np.random.randint(t + 1)
 
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
@@ -284,6 +271,7 @@ def highest_score_arg(s):
 def highest_score(s):
     return np.max(s)
 
+
 # _________________________________________________________________________________
 # model functions
 
@@ -303,10 +291,11 @@ def model(X, y, class_type, epoch, kernel_degree):
         divider = int(epoch * 100)
         # contiguous arrays
         fraction_x = X[0:int(X.shape[0] / divider),
-                       :].copy()
+                     :].copy()
         fraction_y = y[0:int(X.shape[0] / divider)].copy()
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
+
 
 @njit
 def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
@@ -348,11 +337,12 @@ def test_error(X, models, test, label, kernel_degree):
 
     return error_random, error_last, error_avg, error_vote
 
+
 # TODO define SupVect and Mistakes function
 
 
 def save_models(models, epoch, kernel_degree):
-    #print("saving models in models/...")
+    # print("saving models in models/...")
     pretrained = Pretrained()
     if epoch < 1:
         epoch = '0_{}'.format(int(epoch * 10))
@@ -361,7 +351,7 @@ def save_models(models, epoch, kernel_degree):
 
 
 def load_models(epoch, kernel_degree, same):
-    #print("loading models from models/...")
+    # print("loading models from models/...")
     pretrained = Pretrained()
     if epoch < 1:
         epoch = '0_{}'.format(int(epoch * 10))
@@ -408,7 +398,7 @@ def load_and_test_k_perm(X_train, X_test, y_test, epoch, kernel_degree, k):
 def freund_schapire_experiment(X_train, y_train):
     freund_schapire_training(X_train, y_train)
     # TODO
-    #freund_schapire_testing(X_test, y_test)
+    # freund_schapire_testing(X_test, y_test)
 
 
 def freund_schapire_training(X_train, y_train):
@@ -418,7 +408,7 @@ def freund_schapire_training(X_train, y_train):
     print("epoch: from 0.1 to 0.9")
     for i in range(1, 10):
         for kernel_degree in range(1, 6):
-            train_and_store_k_perm(X_train, y_train, i/10, kernel_degree, 5)
+            train_and_store_k_perm(X_train, y_train, i / 10, kernel_degree, 5)
 
     # from 1 to 9
     print("epoch: from 1 to 9")
@@ -446,7 +436,7 @@ def lightweight_training(X_train, y_train):
     print("epoch: from 0.1 to 0.9")
     for i in tqdm(range(1, 10)):
         for kernel_degree in range(1, 6):
-            train_and_store(X_train, y_train, i/10, kernel_degree)
+            train_and_store(X_train, y_train, i / 10, kernel_degree)
 
     # from 1 to 9
     print("epoch: from 1 to 9")
@@ -466,6 +456,7 @@ def lightweight_training(X_train, y_train):
         for kernel_degree in range(2, 6):
             train_and_store(X_train, y_train, i, kernel_degree)
 
+
 # TODO add methods choice
 
 
@@ -480,7 +471,7 @@ def lightweight_testing(X_train, X_test, y_test):
         print("epoch: from 0.1 to 0.9")
         for i in tqdm(range(1, 10)):
             same_kernel_errors.append(load_and_test(
-                X_train, X_test, y_test, i/10, kernel_degree))
+                X_train, X_test, y_test, i / 10, kernel_degree))
 
         # from 1 to 9
         print("epoch: from 1 to 9")
@@ -525,6 +516,7 @@ def simple_plot(errors, x, kernel_degree):
     plt.legend()
     plt.show()
 
+
 def log_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
     """ errors should contains:
         - error_random,
@@ -546,6 +538,7 @@ def log_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
     plt.legend()
     plt.show()
 
+
 if __name__ == "__main__":
     md = MnistDataset()
     # split data
@@ -554,27 +547,26 @@ if __name__ == "__main__":
     X_test, y_test = md.test_dataset()
 
     error_random = []
-    error_last = [] 
-    error_avg = [] 
+    error_last = []
+    error_avg = []
     error_vote = []
     kernel = 4
-    # from 0.1 to 0.9
-    # print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
-    # x1 = np.arange(0.1, 1, 0.1)
-    # x2 = np.arange(1, 11)
-    # for i in tqdm(x1):
-    #     e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-    #     error_random.append(e_r)
-    #     error_last.append(e_l)
-    #     error_avg.append(e_a)
-    #     error_vote.append(e_v)
-    # print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    # for i in tqdm(x2):
-    #     e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-    #     error_random.append(e_r)
-    #     error_last.append(e_l)
-    #     error_avg.append(e_a)
-    #     error_vote.append(e_v)
-    #
-    # log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel)
-    e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, 0.1, kernel)
+
+    print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
+    x1 = np.arange(0.1, 1, 0.1)
+    x2 = np.arange(1, 11)
+    for i in tqdm(x1):
+        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
+    print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    for i in tqdm(x2):
+        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
+
+    log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel)
