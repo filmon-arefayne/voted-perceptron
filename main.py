@@ -30,9 +30,9 @@ from utils import (
     Pretrained,
     np
 )
-from matplotlib import rc
-rc('text', usetex=True)
-rc('font', size=20)
+#from matplotlib import rc
+#rc('text', usetex=True)
+#rc('font', size=20)
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -42,6 +42,7 @@ from tqdm import tqdm
 
 # helped me with ghost Runtime Error caused by latex
 # RuntimeError: Failed to process string with tex because latex could not be found
+# Thread Errors: I don't know yet how to fix this (numba)
 # XXX maybe i will remove latex in the final version
 import faulthandler 
 faulthandler.enable()
