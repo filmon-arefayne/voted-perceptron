@@ -184,7 +184,7 @@ def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
                                          v_train_indices, v_label_coeffs, x, kernel_degree)
 
     s = np.empty(v_train_indices.shape[0])
-    s[0] = 1
+    s[0] = 0
     for i in range(1, v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
@@ -202,7 +202,8 @@ def avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
                                          v_train_indices, v_label_coeffs, x, kernel_degree)
 
     s = np.empty(v_train_indices.shape[0])
-    for i in range(v_train_indices.shape[0]):
+    s[0] = 0
+    for i in range(1, v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
         s[i] = weight * v_x
@@ -219,7 +220,8 @@ def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
                                          v_train_indices, v_label_coeffs, x, kernel_degree)
     v = implicit_form_v(X, v_train_indices, v_label_coeffs)
     s = np.empty(v_train_indices.shape[0])
-    for i in range(v_train_indices.shape[0]):
+    s[0] = 0
+    for i in range(1, v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
         s[i] = weight * normalize(v_x, v[i])
@@ -257,8 +259,7 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
-    mask = score < r
-    indices = np.where(mask)
+    
     maximum = score[score < r].max()
     max_indices = np.where(score == maximum)
     # get the fist index
