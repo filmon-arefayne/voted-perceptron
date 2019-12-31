@@ -113,32 +113,31 @@ def train(X, y, epoch, kernel_degree):
 @njit(parallel=True)
 def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     dot_products = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    for i in range(v_train_indices.shape[0]):
-        yi = v_label_coeffs[i]
-        if v_train_indices[i] < 0:
+    for k in range(v_train_indices.shape[0]):
+        yi = v_label_coeffs[k]
+        if v_train_indices[k] < 0:
             xi = np.zeros(X.shape[1])
         else:
-            xi = X[v_train_indices[i]]
-        dot_products[i] = yi * polynomial_expansion(xi, x, kernel_degree)
-        if i == 0:
-            v_x[0] = dot_products[0]
-        else:
-            v_x[i] = v_x[i-1] + dot_products[i]
+            xi = X[v_train_indices[k]]
+        dot_products[k] = yi * polynomial_expansion(xi, x, kernel_degree)
 
+    v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
+    v_x[0] = dot_products[0]
+    for k in range(1, dot_products.shape[0]):
+        v_x[k] = v_x[k - 1] + dot_products[k]
     return v_x
 
 
-@njit
+@njit(parallel=True)
 def implicit_form_v(X, v_train_indices, v_label_coeffs):
     products = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    for i in range(v_train_indices.shape[0]):
-        yi = v_label_coeffs[i]
-        if v_train_indices[i] < 0:
+    for k in range(v_train_indices.shape[0]):
+        yi = v_label_coeffs[k]
+        if v_train_indices[k] < 0:
             xi = np.zeros(X.shape[1])
         else:
-            xi = X[v_train_indices[i]]
-        products[i] = (yi * xi)
+            xi = X[v_train_indices[k]]
+        products[k] = (yi * xi)
 
     # i can't use itertools.accumulate and
     # np.add.accumulate(product)
@@ -146,8 +145,9 @@ def implicit_form_v(X, v_train_indices, v_label_coeffs):
     # numba pull #4578
     # we will iterate to create the array
     v = np.empty(v_train_indices.shape[0], dtype=np.float64)
-    for i in range(1, products.shape[0]):
-        v[i] = v[i - 1] + products[i]
+    v[0] = products[0]
+    for k in range(1, products.shape[0]):
+        v[k] = v[k - 1] + products[k]
 
     return v
 
@@ -538,6 +538,7 @@ def log_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
     ax.set_title('d={}'.format(kernel_degree))
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Test Error')
+    plt.legend()
     plt.show()
 
 if __name__ == "__main__":
@@ -562,9 +563,13 @@ if __name__ == "__main__":
         error_last.append(e_l)
         error_avg.append(e_a)
         error_vote.append(e_v)
-    #print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    #for i in tqdm(x2):
-    #    errors.append(load_and_test(X_train, X_test, y_test, i, kernel))
-    #np.concatenate((x1, x2))
-    log_plot(x1, error_random, error_last, error_avg, error_vote, kernel)
+    print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    for i in tqdm(x2):
+        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
+
+    log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel)
     
