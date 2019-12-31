@@ -74,12 +74,14 @@ def train(X, y, epochs, kernel_degree):
 
     # v1 = np.zeros(X.shape[1])
     # don't call np.array on a np.array var
-    v_train_indices = np.array((1, 0), dtype=np.int64)
-    v_label_coeffs = np.array((1, 0), dtype=np.int64)
-    c = np.array((1, 0), dtype=np.int64)
-
+    v_train_indices = np.array([0], dtype=np.int64)
+    v_label_coeffs = np.array([0], dtype=np.int64)
+    c = np.array([0], dtype=np.int64)
+    # they all have value = 0
+    # i will not consider the first elements
     weight = 0
     mistakes = 0
+    
     for _ in range(epochs):
         # for xi, label in zip(X, y):
         # numba don't support nested arrays
@@ -105,6 +107,7 @@ def train(X, y, epochs, kernel_degree):
                 weight = 1
                 mistakes = mistakes + 1
     c = np.append(c, np.array([weight]), axis=0)
+    c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
 
 
@@ -181,7 +184,8 @@ def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
                                          v_train_indices, v_label_coeffs, x, kernel_degree)
 
     s = np.empty(v_train_indices.shape[0])
-    for i in range(v_train_indices.shape[0]):
+    s[0] = 1
+    for i in range(1, v_train_indices.shape[0]):
         weight = c[i]
         v_x = dot_products[i]
         s[i] = weight * copysign(1, v_x)
@@ -506,6 +510,30 @@ def lightweight_experiment():
 
     errors = lightweight_testing(X_train, X_test, y_test)
 
+    """ error_random = []
+    error_last = []
+    error_avg = []
+    error_vote = []
+    kernel = 4
+
+    print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
+    x1 = np.arange(0.1, 1, 0.1)
+    x2 = np.arange(1, 11)
+    for i in tqdm(x1):
+        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
+    print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    for i in tqdm(x2):
+        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
+
+    log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel) """
 
 def simple_plot(errors, x, kernel_degree):
     plt.style.use('seaborn')
@@ -546,27 +574,11 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    error_random = []
-    error_last = []
-    error_avg = []
-    error_vote = []
-    kernel = 4
-
-    print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
-    x1 = np.arange(0.1, 1, 0.1)
-    x2 = np.arange(1, 11)
-    for i in tqdm(x1):
-        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-        error_random.append(e_r)
-        error_last.append(e_l)
-        error_avg.append(e_a)
-        error_vote.append(e_v)
-    print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    for i in tqdm(x2):
-        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-        error_random.append(e_r)
-        error_last.append(e_l)
-        error_avg.append(e_a)
-        error_vote.append(e_v)
-
-    log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel)
+    data = model(X_train, y_train, 0, 0.1, kernel_degree = 1)
+    print('support vectors: ',data[0].shape)
+    print('support vectors labels: ',data[1].shape)
+    print('support vectors weights: ',data[2].shape)
+    print('mistakes: ',data[3])
+    print('support vectors: ',data[0])
+    print('support vectors labels: ',data[1])
+    print('support vectors weights: ',data[2])
