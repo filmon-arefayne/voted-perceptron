@@ -40,13 +40,10 @@ from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
 
-# helped me with ghost Runtime Error caused by latex
-# RuntimeError: Failed to process string with tex because latex could not be found
-# Thread Errors: I don't know yet how to fix this (numba)
-# XXX maybe i will remove latex in the final version
 import faulthandler 
 faulthandler.enable()
 
+# FIXME refactoring
 @njit
 def train(X, y, epoch, kernel_degree):
     """Train the voted perceptron.
@@ -109,16 +106,17 @@ def train(X, y, epoch, kernel_degree):
     c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
 
-
+# FIXME refactoring
 @njit(parallel=True)
 def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     dot_products = np.empty(v_train_indices.shape[0], dtype=np.float64)
     for k in range(v_train_indices.shape[0]):
-        yi = v_label_coeffs[k]
         if v_train_indices[k] < 0:
             xi = np.zeros(X.shape[1])
+            yi = 1
         else:
             xi = X[v_train_indices[k]]
+            yi = v_label_coeffs[k]
         dot_products[k] = yi * polynomial_expansion(xi, x, kernel_degree)
 
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
@@ -238,7 +236,6 @@ def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 
     return np.sum(s)
 
-
 @njit
 def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using analog of the randomized leave-one-out 
@@ -249,11 +246,9 @@ def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     # time slice
     r = np.random.randint(t+1)
 
-
     score = implicit_form_product(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree)[r]
-
-    return score
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
+    return score[score < r].max()
 
 
 @njit
@@ -270,9 +265,14 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     r = np.random.randint(t+1)
 
     score = implicit_form_product(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree)[r]
-
-    return normalize(score, implicit_form_v(X, v_train_indices, v_label_coeffs)[r])
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
+    mask = score < r
+    indices = np.where(mask)
+    maximum = score[score < r].max()
+    max_indices = np.where(score == maximum)
+    # get the fist index
+    index = max_indices[0]
+    return normalize(maximum, implicit_form_v(X, v_train_indices, v_label_coeffs)[index])
 
 
 @njit
@@ -315,7 +315,8 @@ def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     s_avg = avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     s_vote = vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
 
-    return s_random, s_last, s_avg, s_vote
+    return np.array([s_random, s_last, s_avg, s_vote])
+
 
 def test_error(X, models, test, label, kernel_degree):
     scores_random = np.empty(test.shape[0])
@@ -329,7 +330,11 @@ def test_error(X, models, test, label, kernel_degree):
         s_avg = np.empty(10)
         s_vote = np.empty(10)
         for i in range(10):
-            s_random[i], s_last[i], s_avg[i], s_vote[i] = predictions(X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree)
+            predictions_array = predictions(X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree)
+            s_random[i] = predictions_array[0]
+            s_last[i] = predictions_array[1]
+            s_avg[i] = predictions_array[2]
+            s_vote[i] = predictions_array[3]
         # Survival Of The Fittest
         scores_random[j] = highest_score_arg(s_random)
         scores_last[j] = highest_score_arg(s_last)
@@ -554,22 +559,22 @@ if __name__ == "__main__":
     error_vote = []
     kernel = 4
     # from 0.1 to 0.9
-    print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
-    x1 = np.arange(0.1, 1, 0.1)
-    x2 = np.arange(1, 11)
-    for i in tqdm(x1):
-        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-        error_random.append(e_r)
-        error_last.append(e_l)
-        error_avg.append(e_a)
-        error_vote.append(e_v)
-    print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    for i in tqdm(x2):
-        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-        error_random.append(e_r)
-        error_last.append(e_l)
-        error_avg.append(e_a)
-        error_vote.append(e_v)
-
-    log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel)
-    
+    # print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
+    # x1 = np.arange(0.1, 1, 0.1)
+    # x2 = np.arange(1, 11)
+    # for i in tqdm(x1):
+    #     e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+    #     error_random.append(e_r)
+    #     error_last.append(e_l)
+    #     error_avg.append(e_a)
+    #     error_vote.append(e_v)
+    # print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    # for i in tqdm(x2):
+    #     e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
+    #     error_random.append(e_r)
+    #     error_last.append(e_l)
+    #     error_avg.append(e_a)
+    #     error_vote.append(e_v)
+    #
+    # log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel)
+    e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, 0.1, kernel)
