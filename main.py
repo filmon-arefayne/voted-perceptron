@@ -245,7 +245,7 @@ def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
 
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
-    return score[score < r].max()
+    return score[score <= r].max()
 
 
 @njit
@@ -264,7 +264,7 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
 
-    maximum = score[score < r].max()
+    maximum = score[score <= r].max()
     max_indices = np.where(score == maximum)
     # get the fist index
     index = max_indices[0]
