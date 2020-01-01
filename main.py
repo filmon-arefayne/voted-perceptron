@@ -107,7 +107,6 @@ def train(X, y, epochs, kernel_degree):
                 # reset #C_k+1 = 1
                 weight = 1
                 mistakes = mistakes + 1
-                epoch_error = True
         
     c = np.append(c, np.array([weight]), axis=0)
     c = c[1:c.shape[0]]
