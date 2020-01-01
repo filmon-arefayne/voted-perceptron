@@ -472,9 +472,6 @@ def lightweight_training(X_train, y_train):
             train_and_store(X_train, y_train, i, kernel_degree)
 
 
-# TODO add methods choice
-
-
 def lightweight_testing(X_train, X_test, y_test):
     print("testing the perceptron algorithm on MNIST dataset")
     errors = []
