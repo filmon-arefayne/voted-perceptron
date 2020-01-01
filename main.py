@@ -85,7 +85,7 @@ def train(X, y, epochs, kernel_degree):
     for _ in range(epochs):
         # for xi, label in zip(X, y):
         # numba don't support nested arrays
-        epoch_error = False
+
         for i in range(X.shape[0]):
             xi = X[i]
             label = y[i]
@@ -108,8 +108,7 @@ def train(X, y, epochs, kernel_degree):
                 weight = 1
                 mistakes = mistakes + 1
                 epoch_error = True
-        if epoch_error is False:
-            break
+        
     c = np.append(c, np.array([weight]), axis=0)
     c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
