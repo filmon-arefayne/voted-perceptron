@@ -81,10 +81,11 @@ def train(X, y, epochs, kernel_degree):
     # i will not consider the first elements
     weight = 0
     mistakes = 0
-    
+
     for _ in range(epochs):
         # for xi, label in zip(X, y):
         # numba don't support nested arrays
+        epoch_error = False
         for i in range(X.shape[0]):
             xi = X[i]
             label = y[i]
@@ -106,6 +107,9 @@ def train(X, y, epochs, kernel_degree):
                 # reset #C_k+1 = 1
                 weight = 1
                 mistakes = mistakes + 1
+                epoch_error = True
+        if epoch_error is False:
+            break
     c = np.append(c, np.array([weight]), axis=0)
     c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
@@ -119,7 +123,7 @@ def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     for k in range(1, v_train_indices.shape[0]):
         xi = X[v_train_indices[k]]
         yi = v_label_coeffs[k]
-        v_x[k] = v_x[k - 1] +  yi * polynomial_expansion(xi, x, kernel_degree)
+        v_x[k] = v_x[k - 1] + yi * polynomial_expansion(xi, x, kernel_degree)
 
     return v_x
 
@@ -259,7 +263,7 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
-    
+
     maximum = score[score < r].max()
     max_indices = np.where(score == maximum)
     # get the fist index
@@ -296,7 +300,7 @@ def model(X, y, class_type, epoch, kernel_degree):
         divider = int(epoch * 100)
         # contiguous arrays
         fraction_x = X[0:int(X.shape[0] / divider),
-                     :].copy()
+                       :].copy()
         fraction_y = y[0:int(X.shape[0] / divider)].copy()
         return train(fraction_x, fraction_y, 1, kernel_degree)
     return train(X, y, epoch, kernel_degree)
@@ -304,9 +308,12 @@ def model(X, y, class_type, epoch, kernel_degree):
 
 @njit
 def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
-    s_random = random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
-    s_last = last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree)
-    s_avg = avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
+    s_random = random_unnormalized(
+        X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
+    s_last = last_unnormalized(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
+    s_avg = avg_unnormalized(
+        X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     s_vote = vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
 
     return np.array([s_random, s_last, s_avg, s_vote])
@@ -324,7 +331,8 @@ def test_error(X, models, test, label, kernel_degree):
         s_avg = np.empty(10)
         s_vote = np.empty(10)
         for i in range(10):
-            predictions_array = predictions(X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree)
+            predictions_array = predictions(
+                X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree)
             s_random[i] = predictions_array[0]
             s_last[i] = predictions_array[1]
             s_avg[i] = predictions_array[2]
@@ -335,6 +343,7 @@ def test_error(X, models, test, label, kernel_degree):
         scores_avg[j] = highest_score_arg(s_avg)
         scores_vote[j] = highest_score_arg(s_vote)
         j = j + 1
+
     error_random = np.sum(scores_random != label) / label.shape[0]
     error_last = np.sum(scores_last != label) / label.shape[0]
     error_avg = np.sum(scores_avg != label) / label.shape[0]
@@ -370,7 +379,8 @@ def train_and_store(X_train, y_train, epoch, kernel_degree):
 
 def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     models = load_models(epoch, kernel_degree, same)
-    e_r, e_l, e_a, e_v = test_error(X_train, models, X_test, y_test, kernel_degree)
+    e_r, e_l, e_a, e_v = test_error(
+        X_train, models, X_test, y_test, kernel_degree)
     perc_r = e_r * 100
     perc_l = e_l * 100
     perc_a = e_a * 100
@@ -536,6 +546,7 @@ def lightweight_experiment():
 
     log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel) """
 
+
 def simple_plot(errors, x, kernel_degree):
     plt.style.use('seaborn')
     plt.plot(x, errors, label='last(unorm)')
@@ -556,10 +567,10 @@ def log_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
     plt.style.use('seaborn')
     fig = plt.figure(figsize=(10, 6))
     ax = fig.add_subplot(111)
-    ax.semilogx(x, error_random, label='random(unorm)')
-    ax.semilogx(x, error_last, label='last(unorm)')
-    ax.semilogx(x, error_avg, label='avg(unorm)')
-    ax.semilogx(x, error_vote, label='vote')
+    ax.plot(x, error_random, label='random(unorm)')
+    ax.plot(x, error_last, label='last(unorm)')
+    ax.plot(x, error_avg, label='avg(unorm)')
+    ax.plot(x, error_vote, label='vote')
     ax.xaxis.set_major_formatter(ScalarFormatter())
     ax.set_title('d={}'.format(kernel_degree))
     ax.set_xlabel('Epoch')
@@ -575,11 +586,4 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    data = model(X_train, y_train, 0, 0.1, kernel_degree = 1)
-    print('support vectors: ',data[0].shape)
-    print('support vectors labels: ',data[1].shape)
-    print('support vectors weights: ',data[2].shape)
-    print('mistakes: ',data[3])
-    print('support vectors: ',data[0])
-    print('support vectors labels: ',data[1])
-    print('support vectors weights: ',data[2])
+    lightweight_training(X_train,y_train)
