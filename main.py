@@ -93,7 +93,7 @@ def train(X, y, epochs, kernel_degree):
             # same here i can't use sum over the prediction vector
             # we need to iterate over a variable
             # we define a new function
-            K = vect_polynomial_expansion(X[0:v_train_indices.shape[0],:].copy(), X[0:v_train_indices.shape[0],:].copy(), kernel_degree)
+            K = vect_polynomial_expansion(X[0:i+1,:].copy(), X[0:i+1,:].copy(), kernel_degree)
            
             y_hat = copysign(1, implicit_form_product(
                 X, v_train_indices, v_label_coeffs, xi, kernel_degree, K[i])[-1])
