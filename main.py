@@ -82,8 +82,6 @@ def train(X, y, epochs, kernel_degree):
     weight = 0
     mistakes = 0
 
-    # fast gram matrix
-    K = vect_polynomial_expansion(X, X, kernel_degree)
 
     for _ in range(epochs):
         # for xi, label in zip(X, y):
@@ -95,6 +93,8 @@ def train(X, y, epochs, kernel_degree):
             # same here i can't use sum over the prediction vector
             # we need to iterate over a variable
             # we define a new function
+            K = vect_polynomial_expansion(X[0:v_train_indices.shape[0],:].copy(), X[0:v_train_indices.shape[0],:].copy(), kernel_degree)
+           
             y_hat = copysign(1, implicit_form_product(
                 X, v_train_indices, v_label_coeffs, xi, kernel_degree, K[i])[-1])
             # we take always the last prediction vector's product
