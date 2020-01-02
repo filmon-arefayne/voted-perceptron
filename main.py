@@ -82,7 +82,6 @@ def train(X, y, epochs, kernel_degree):
     weight = 0
     mistakes = 0
 
-
     for _ in range(epochs):
         # for xi, label in zip(X, y):
         # numba don't support nested arrays
@@ -93,10 +92,8 @@ def train(X, y, epochs, kernel_degree):
             # same here i can't use sum over the prediction vector
             # we need to iterate over a variable
             # we define a new function
-            K = vect_polynomial_expansion(X[0:i+1,:].copy(), X[0:i+1,:].copy(), kernel_degree)
-           
             y_hat = copysign(1, implicit_form_product(
-                X, v_train_indices, v_label_coeffs, xi, kernel_degree, K[i])[-1])
+                X, v_train_indices, v_label_coeffs, xi, kernel_degree)[-1])
             # we take always the last prediction vector's product
             # complexity of implicit_form_product is O(k)
             if y_hat == label:
@@ -110,32 +107,26 @@ def train(X, y, epochs, kernel_degree):
                 # reset #C_k+1 = 1
                 weight = 1
                 mistakes = mistakes + 1
-
+        
     c = np.append(c, np.array([weight]), axis=0)
     c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
 
 
-@njit
-def vect_polynomial_expansion(X, Y, d):
-    return (1 + np.dot(X, Y.T)) ** d
-
-
-@njit
-def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree, K):
+@njit#(parallel=True)
+def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
     # the first dot_product is y0 = 1 *polynomial_expansion(x0 = 0_vect,x)
     v_x[0] = polynomial_expansion(np.zeros(X.shape[1]), x, kernel_degree)
-
     for k in range(1, v_train_indices.shape[0]):
-        #xi = X[v_train_indices[k]]
+        xi = X[v_train_indices[k]]
         yi = v_label_coeffs[k]
-        v_x[k] = v_x[k - 1] + yi * K[v_train_indices[k]]
+        v_x[k] = v_x[k - 1] + yi * polynomial_expansion(xi, x, kernel_degree)
 
     return v_x
 
 
-@njit  # (parallel=True)
+@njit#(parallel=True)
 def implicit_form_v(X, v_train_indices, v_label_coeffs):
     v = np.empty(v_train_indices.shape[0], dtype=np.float64)
     # v0
@@ -159,11 +150,11 @@ def polynomial_expansion(xi, xj, d):
 
 
 @njit
-def last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree, K):
+def last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     """Compute score using the final prediction vector(unnormalized)"""
     """ x: unlabeled instance"""
     score = implicit_form_product(X,
-                                  v_train_indices, v_label_coeffs, x, kernel_degree, K)[-1]
+                                  v_train_indices, v_label_coeffs, x, kernel_degree)[-1]
 
     return score
 
@@ -177,22 +168,22 @@ def normalize(score, v):
 
 
 @njit
-def last_normalized(X, v_train_indices, v_label_coeffs, x, kernel_degree, K):
+def last_normalized(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     """Compute score using the final prediction vector(normalized)"""
     """ x: unlabeled instance"""
     score = last_unnormalized(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree, K)
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
 
     return normalize(score, implicit_form_v(X, v_train_indices, v_label_coeffs)[-1])
 
 
 @njit
-def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
+def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using analog of the deterministic leave-one-out conversion"""
     """ x: unlabeled instance"""
 
     dot_products = implicit_form_product(X,
-                                         v_train_indices, v_label_coeffs, x, kernel_degree, K)
+                                         v_train_indices, v_label_coeffs, x, kernel_degree)
 
     s = np.empty(v_train_indices.shape[0])
     s[0] = 0
@@ -205,12 +196,12 @@ def vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
 
 
 @njit
-def avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
+def avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using an average of the prediction vectors"""
     """ x: unlabeled instance"""
 
     dot_products = implicit_form_product(X,
-                                         v_train_indices, v_label_coeffs, x, kernel_degree, K)
+                                         v_train_indices, v_label_coeffs, x, kernel_degree)
 
     s = np.empty(v_train_indices.shape[0])
     s[0] = 0
@@ -223,12 +214,12 @@ def avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K)
 
 
 @njit
-def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
+def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using an average of the prediction vectors(normalized)"""
     """ x: unlabeled instance"""
 
     dot_products = implicit_form_product(X,
-                                         v_train_indices, v_label_coeffs, x, kernel_degree, K)
+                                         v_train_indices, v_label_coeffs, x, kernel_degree)
     v = implicit_form_v(X, v_train_indices, v_label_coeffs)
     s = np.empty(v_train_indices.shape[0])
     s[0] = 0
@@ -241,7 +232,7 @@ def avg_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
 
 
 @njit
-def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
+def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using analog of the randomized leave-one-out 
     method in which we predict using the prediction vectors 
     that exist at a randomly chosen “time slice.”"""
@@ -249,21 +240,23 @@ def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree,
     t = np.sum(c)
     # time slice
     r = np.random.randint(t + 1)
-    rl_sum = 0
+    rl_sum  = 0
     rl = 1
-    for i in range(1, c.shape[0]):
-        if rl_sum > r:
-            break
-        rl_sum = rl_sum + c[i]
-        rl = rl + 1
+    for i in range(1,c.shape[0]):
+      if rl_sum > r:
+        break
+      rl_sum = rl_sum + c[i]
+      rl = rl + 1
     rl = rl - 1
     score = implicit_form_product(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree, K)[rl]
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)[rl]
     return score
 
 
+
+
 @njit
-def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
+def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     """Compute score using analog of the randomized leave-one-out 
     method in which we predict using the prediction vectors 
     that exist at a randomly chosen “time slice.(normalized)”"""
@@ -275,16 +268,19 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K
     # randint is exclusive
     r = np.random.randint(t + 1)
 
-    rl_sum = 0
+    score = implicit_form_product(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
+
+    rl_sum  = 0
     rl = 1
-    for i in range(1, c.shape[0]):
-        if rl_sum > r:
-            break
-        rl_sum = rl_sum + c[i]
-        rl = rl + 1
+    for i in range(1,c.shape[0]):
+      if rl_sum > r:
+        break
+      rl_sum = rl_sum + c[i]
+      rl = rl + 1
     rl = rl - 1
     score = implicit_form_product(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree, K)[rl]
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)[rl]
 
     return normalize(score, implicit_form_v(X, v_train_indices, v_label_coeffs)[rl])
 
@@ -325,14 +321,14 @@ def model(X, y, class_type, epoch, kernel_degree):
 
 
 @njit
-def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K):
+def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     s_random = random_unnormalized(
-        X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K)
+        X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     s_last = last_unnormalized(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree, K)
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)
     s_avg = avg_unnormalized(
-        X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K)
-    s_vote = vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, K)
+        X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
+    s_vote = vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
 
     return np.array([s_random, s_last, s_avg, s_vote])
 
@@ -343,16 +339,14 @@ def test_error(X, models, test, label, kernel_degree):
     scores_avg = np.empty(test.shape[0])
     scores_vote = np.empty(test.shape[0])
     j = 0
-    K = vect_polynomial_expansion(test,X, kernel_degree)
-    for t in range(test.shape[0]):
-        x = test[t]
+    for x in test:
         s_random = np.empty(10)
         s_last = np.empty(10)
         s_avg = np.empty(10)
         s_vote = np.empty(10)
         for i in range(10):
             predictions_array = predictions(
-                X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree, K[t])
+                X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree)
             s_random[i] = predictions_array[0]
             s_last[i] = predictions_array[1]
             s_avg[i] = predictions_array[2]
@@ -612,16 +606,15 @@ if __name__ == "__main__":
     print("epoch: from 1 to 10 kernel:{}".format(kernel))
     x1 = np.arange(0.1, 0.4, 0.1)
     for i in tqdm(x1):
-        array = []
-        for j in range(10):
-            array.append(model(X_train, y_train, j, i, kernel))
-        models = np.array(array)
-        e_r, e_l, e_a, e_v = test_error(
-            X_train, models, X_test, y_test, kernel)
+      array = []
+      for j in range(10):
+        array.append(model(X_train, y_train,j, i, kernel))
+      models = np.array(array)
+      e_r, e_l, e_a, e_v = test_error(X_train,models, X_test, y_test, kernel)
 
-        error_random.append(e_r*100)
-        error_last.append(e_l*100)
-        error_avg.append(e_a*100)
-        error_vote.append(e_v*100)
+      error_random.append(e_r*100)
+      error_last.append(e_l*100)
+      error_avg.append(e_a*100)
+      error_vote.append(e_v*100)
 
     log_plot(x1, error_random, error_last, error_avg, error_vote, kernel)
