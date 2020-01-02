@@ -240,10 +240,19 @@ def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     t = np.sum(c)
     # time slice
     r = np.random.randint(t + 1)
-
+    rl_sum  = 0
+    rl = 1
+    for i in range(1,c.shape[0]):
+      if rl_sum > r:
+        break
+      rl_sum = rl_sum + c[i]
+      rl = rl + 1
+    rl = rl - 1
     score = implicit_form_product(
-        X, v_train_indices, v_label_coeffs, x, kernel_degree)
-    return score[score <= r].max()
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)[rl]
+    return score
+
+
 
 
 @njit
@@ -262,11 +271,18 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
 
-    maximum = score[score <= r].max()
-    max_indices = np.where(score == maximum)
-    # get the fist index
-    index = max_indices[0]
-    return normalize(maximum, implicit_form_v(X, v_train_indices, v_label_coeffs)[index])
+    rl_sum  = 0
+    rl = 1
+    for i in range(1,c.shape[0]):
+      if rl_sum > r:
+        break
+      rl_sum = rl_sum + c[i]
+      rl = rl + 1
+    rl = rl - 1
+    score = implicit_form_product(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree)[rl]
+
+    return normalize(score, implicit_form_v(X, v_train_indices, v_label_coeffs)[rl])
 
 
 @njit
@@ -581,4 +597,24 @@ if __name__ == "__main__":
 
     X_test, y_test = md.test_dataset()
 
-    lightweight_training(X_train,y_train)
+    error_random = []
+    error_last = []
+    error_avg = []
+    error_vote = []
+    kernel = 5
+
+    print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    x1 = np.arange(0.1, 0.4, 0.1)
+    for i in tqdm(x1):
+      array = []
+      for j in range(10):
+        array.append(model(X_train, y_train,j, i, kernel))
+      models = np.array(array)
+      e_r, e_l, e_a, e_v = test_error(X_train,models, X_test, y_test, kernel)
+
+      error_random.append(e_r*100)
+      error_last.append(e_l*100)
+      error_avg.append(e_a*100)
+      error_vote.append(e_v*100)
+
+    log_plot(x1, error_random, error_last, error_avg, error_vote, kernel)
