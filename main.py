@@ -39,7 +39,7 @@ from matplotlib.ticker import ScalarFormatter
 from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
-
+from joblib import Parallel, delayed
 import faulthandler
 
 faulthandler.enable()
@@ -299,12 +299,8 @@ def highest_score(s):
 # model functions
 
 
-@njit(parallel=True)
 def fit(X, y, epoch, kernel_degree):
-    array = []
-    for i in prange(10):
-        array.append(model(X, y, i, epoch, kernel_degree))
-    return array
+    return Parallel(n_jobs=2,prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
 
 
 @njit
@@ -610,30 +606,39 @@ if __name__ == "__main__":
     error_avg = []
     error_vote = []
     kernel = 5
-    print("mistakes")
-    for g in np.arange(0.1, 1, 0.1):
-        models = load_models(g,kernel,0)
-        print(n_mistakes(models))
-    print("sup vect")
-    for g in np.arange(0.1, 1, 0.1):
-        models = load_models(g,kernel,0)
-        print(n_supvect(models))
-    print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    x1 = np.arange(0.1, 1, 0.1)
-    for i in tqdm(x1):
-        array = []
-        for j in range(10):
-            array.append(model(X_train,y_train,j,i, kernel))
-        models = np.array(array)
-        print("mistakes")
-        print(n_mistakes(models))
-        print("sup vect")
-        print(n_supvect(models))
-        e_r, e_l, e_a, e_v = test_error(X_train,models, X_test, y_test, kernel)
-        error_random.append(e_r*100)
-        error_last.append(e_l*100)
-        error_avg.append(e_a*100)
-        error_vote.append(e_v*100)
-
+    x1 = np.arange(0.1,0.4,0.1)
+    for q in x1:
+        train_and_store(X_train,y_train,q,kernel)
+        e_r, e_l, e_a, e_v = load_and_test(X_train,X_test,y_test,q,kernel,0)
+        error_random.append(e_r)
+        error_last.append(e_l)
+        error_avg.append(e_a)
+        error_vote.append(e_v)
     log_plot(x1, error_random, error_last, error_avg, error_vote, kernel)
+    # print("mistakes")
+    # for g in np.arange(0.1, 1, 0.1):
+    #     models = load_models(g,kernel,0)
+    #     print(n_mistakes(models))
+    # print("sup vect")
+    # for g in np.arange(0.1, 1, 0.1):
+    #     models = load_models(g,kernel,0)
+    #     print(n_supvect(models))
+    # print("epoch: from 1 to 10 kernel:{}".format(kernel))
+    # x1 = np.arange(0.1, 1, 0.1)
+    # for i in tqdm(x1):
+    #     array = []
+    #     for j in range(10):
+    #         array.append(model(X_train,y_train,j,i, kernel))
+    #     models = np.array(array)
+    #     print("mistakes")
+    #     print(n_mistakes(models))
+    #     print("sup vect")
+    #     print(n_supvect(models))
+    #     e_r, e_l, e_a, e_v = test_error(X_train,models, X_test, y_test, kernel)
+    #     error_random.append(e_r*100)
+    #     error_last.append(e_l*100)
+    #     error_avg.append(e_a*100)
+    #     error_vote.append(e_v*100)
+
+    # log_plot(x1, error_random, error_last, error_avg, error_vote, kernel)
    
