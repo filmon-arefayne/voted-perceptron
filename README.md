@@ -10,9 +10,9 @@ In this repo , we try to reproduce some of the results reported in section 5 of 
 
 ## Getting Started
 There are two method to run this project:
-the preferred method **is to run the colab notebook** the instruction are in it.
+the preferred method **is to run the colab notebook**.
 
-These instructions below will get you a copy of the project up and running on your local machine.
+Instructions below will get you a copy of the project up and running on your local machine.
 
 ### Prerequisites(Local)
 
@@ -42,7 +42,7 @@ To get the pretrained models you will need to fetch the data from the submodule:
 
 `git submodule update`
 
-**Now you to create a 'model' folder and then copy the content of the 'pretrained' folder in it.**
+**Now you need to create a 'model' folder and then copy in it the content of the 'pretrained' folder.**
 
 ## Built With
 * [Numpy](https://numpy.org/) - NumPy is the fundamental package for scientific computing with Python. 
