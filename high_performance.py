@@ -108,7 +108,7 @@ def train(X, y, epochs, kernel_degree):
 def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float32)
     # the first dot_product is y0 = 1 *polynomial_expansion(x0 = 0_vect,x)
-    v_x[0] = polynomial_expansion(np.zeros(X.shape[1]), x, kernel_degree)
+    v_x[0] = polynomial_expansion(np.zeros(X.shape[1], dtype=np.float32), x, kernel_degree)
     for k in range(1, v_train_indices.shape[0]):
         xi = X[v_train_indices[k]]
         yi = v_label_coeffs[k]
