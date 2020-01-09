@@ -398,7 +398,6 @@ def gram_implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_deg
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float32)
     v_x[0] = polynomial_expansion(
         np.zeros(X.shape[1], dtype=np.float32), x, kernel_degree)
-    assert('Gram_train' in globals())
     for k in range(1, v_train_indices.shape[0]):
         yi = v_label_coeffs[k]
         v_x[k] = v_x[k - 1] + yi * Gram_train[gram_index, v_train_indices[k]]
@@ -411,7 +410,6 @@ def gram_test_implicit_form_product(X, v_train_indices, v_label_coeffs, x, kerne
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float32)
     v_x[0] = polynomial_expansion(
         np.zeros(X.shape[1], dtype=np.float32), x, kernel_degree)
-    assert('Gram_test' in globals())
     for k in range(1, v_train_indices.shape[0]):
         yi = v_label_coeffs[k]
         v_x[k] = v_x[k - 1] + yi * Gram_test[gram_index, v_train_indices[k]]
