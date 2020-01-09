@@ -24,7 +24,8 @@ from high_performance import (
     predictions,
     highest_score_arg,
     fit,
-    gram_predictions
+    gram_predictions,
+    gram_fit
 )
 # _________________________________________________________________________________
 # Progress Bar
@@ -205,6 +206,9 @@ def train_and_store(X_train, y_train, epoch, kernel_degree):
     models = np.array(fit(X_train, y_train, epoch, kernel_degree))
     save_models(models, epoch, kernel_degree)
 
+def gram_train_and_store(X_train, y_train, epoch, kernel_degree):
+    models = np.array(gram_fit(X_train, y_train, epoch, kernel_degree))
+    save_models(models, epoch, kernel_degree)
 
 def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     models = load_models(epoch, kernel_degree, same)

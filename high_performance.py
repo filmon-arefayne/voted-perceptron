@@ -333,7 +333,7 @@ def gram_build(X, kernel_degree):
 
 
 def gram_fit(X, y, epoch, kernel_degree):
-    return Parallel(n_jobs=2, prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
+    return Parallel(n_jobs=2, prefer="threads")(delayed(gram_model)(X, y, i, epoch, kernel_degree) for i in range(10))
 
 
 @njit
@@ -344,8 +344,8 @@ def gram_model(X, y, class_type, epoch, kernel_degree):
         fraction_x = X[0:int(X.shape[0] * epoch),
                        :].copy()
         fraction_y = y[0:int(X.shape[0] * epoch)].copy()
-        return train(fraction_x, fraction_y, 1, kernel_degree)
-    return train(X, y, epoch, kernel_degree)
+        return gram_train(fraction_x, fraction_y, 1, kernel_degree)
+    return gram_train(X, y, epoch, kernel_degree)
 
 
 @njit
