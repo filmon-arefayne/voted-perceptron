@@ -35,7 +35,7 @@ Then you need to install the basic dependencies to run the project on your syste
 
 To get the pretrained models you will need to fetch the data from the submodule:
 
-`cd algorithms-and-data-structures-report`
+`cd voted-perceptron`
 
 `git submodule init`
 
