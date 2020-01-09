@@ -25,13 +25,9 @@ high_performace.py
     ----------
     """
 
-from utils import (
-    MnistDataset,
-    Pretrained,
-    np
-)
 
 
+import numpy as np
 from numba import njit, prange
 from math import copysign
 from tqdm import tqdm
@@ -294,7 +290,7 @@ def highest_score(s):
 # _________________________________________________________________________________
 # model functions
 
-
+# not numba
 def fit(X, y, epoch, kernel_degree):
     return Parallel(n_jobs=4,prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
 
@@ -338,6 +334,33 @@ def gram_build(X, kernel_degree):
             Gram[j,i] = Gram[i,j]
   return Gram
 
+def gram_fit(X, y, epoch, kernel_degree):
+    return Parallel(n_jobs=2,prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
+
+
+@njit
+def gram_model(X, y, class_type, epoch, kernel_degree):
+    y = np.where(y == class_type, 1, -1)
+    if epoch < 1:
+        # contiguous arrays
+        fraction_x = X[0:int(X.shape[0] * epoch),
+                       :].copy()
+        fraction_y = y[0:int(X.shape[0] * epoch)].copy()
+        return train(fraction_x, fraction_y, 1, kernel_degree)
+    return train(X, y, epoch, kernel_degree)
+
+
+@njit
+def gram_predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index):
+    s_random = gram_random_unnormalized(
+        X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index)
+    s_last = gram_last_unnormalized(
+        X, v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)
+    s_avg = gram_avg_unnormalized(
+        X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index)
+    s_vote = gram_vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index)
+
+    return np.array([s_random, s_last, s_avg, s_vote])
 @njit
 def gram_train(X, y, epochs, kernel_degree):
     v_train_indices = np.array([0], dtype=np.int64)

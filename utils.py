@@ -4,7 +4,8 @@ utils.py
 - Mnist loader,
 - Progress bar
 - model save & load
-
+- experiment utils 
+- permutation
 """
 
 import numpy as np
@@ -213,159 +214,42 @@ def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     return perc_r, perc_l, perc_a, perc_v
 
 
-def train_and_store_k_perm(X_train, y_train, epoch, kernel_degree, k):
-    np.random.seed(31415)
-    print("training k permutation")
-    for _ in range(k):
-        arr = np.append(X_train, np.expand_dims(y_train, axis=1), axis=1)
-        arr = np.random.permutation(arr)
-        X_perm = arr[:, 0:-1].copy()
-        y_perm = arr[:, -1].copy()
-        models = fit(X_perm, y_perm, epoch, kernel_degree)
-        save_models(models, epoch, kernel_degree)
 
 
-def load_and_test_k_perm(X_train, X_test, y_test, epoch, kernel_degree, k):
-    print("loading k permutation and training 10 classes")
-    for i in range(k):
-        models = load_models(epoch, kernel_degree, i)
-        error = test_error(X_train, models, X_test, y_test, kernel_degree)
-        perc = error * 100
-        print("{0:.2f}".format(perc))
+# gram test error
+def gram_test_error(X, models, test, label, kernel_degree):
+    scores_random = np.empty(test.shape[0])
+    scores_last = np.empty(test.shape[0])
+    scores_avg = np.empty(test.shape[0])
+    scores_vote = np.empty(test.shape[0])
+    j = 0
+    for t in range(test.shape[0]):
+        x = test[t]
+        s_random = np.empty(10)
+        s_last = np.empty(10)
+        s_avg = np.empty(10)
+        s_vote = np.empty(10)
+        for i in range(10):
+            predictions_array = gram_predictions(
+                X, models[i, 0], models[i, 1], models[i, 2], x, kernel_degree, t)
+            s_random[i] = predictions_array[0]
+            s_last[i] = predictions_array[1]
+            s_avg[i] = predictions_array[2]
+            s_vote[i] = predictions_array[3]
+        # Survival Of The Fittest
+        scores_random[j] = highest_score_arg(s_random)
+        scores_last[j] = highest_score_arg(s_last)
+        scores_avg[j] = highest_score_arg(s_avg)
+        scores_vote[j] = highest_score_arg(s_vote)
+        j = j + 1
 
+    error_random = np.sum(scores_random != label) / label.shape[0]
+    error_last = np.sum(scores_last != label) / label.shape[0]
+    error_avg = np.sum(scores_avg != label) / label.shape[0]
+    error_vote = np.sum(scores_vote != label) / label.shape[0]
 
-def freund_schapire_experiment(X_train, y_train):
-    freund_schapire_training(X_train, y_train)
-    # TODO
-    # freund_schapire_testing(X_test, y_test)
-
-
-def freund_schapire_training(X_train, y_train):
-    print("training the perceptron algorithm on MNIST dataset")
-
-    # from 0.1 to 0.9
-    print("epoch: from 0.1 to 0.9")
-    for i in range(1, 10):
-        for kernel_degree in range(1, 6):
-            train_and_store_k_perm(X_train, y_train, i / 10, kernel_degree, 5)
-
-    # from 1 to 9
-    print("epoch: from 1 to 9")
-    for i in range(1, 10):
-        for kernel_degree in range(1, 6):
-            train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
-
-    # 10 the last width kernel 1
-    print("epoch: 10")
-    for i in range(10, 11):
-        for kernel_degree in range(1, 6):
-            train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
-
-    # from 20 to 30
-    print("epoch: from 20 to 30")
-    for i in range(20, 40, 10):
-        for kernel_degree in range(2, 6):
-            train_and_store_k_perm(X_train, y_train, i, kernel_degree, 5)
-
-
-def lightweight_training(X_train, y_train):
-    print("training the perceptron algorithm on MNIST dataset")
-
-    # from 0.1 to 0.9
-    print("epoch: from 0.1 to 0.9")
-    for i in tqdm(range(1, 10)):
-        for kernel_degree in range(1, 6):
-            train_and_store(X_train, y_train, i / 10, kernel_degree)
-
-    # from 1 to 9
-    print("epoch: from 1 to 9")
-    for i in tqdm(range(1, 10)):
-        for kernel_degree in range(1, 6):
-            train_and_store(X_train, y_train, i, kernel_degree)
-
-    # 10 the last width kernel 1
-    print("epoch: 10")
-    for i in tqdm(range(10, 11)):
-        for kernel_degree in range(1, 6):
-            train_and_store(X_train, y_train, i, kernel_degree)
-
-    # from 20 to 30
-    print("epoch: from 20 to 30")
-    for i in tqdm(range(20, 40, 10)):
-        for kernel_degree in range(2, 6):
-            train_and_store(X_train, y_train, i, kernel_degree)
-
-
-def lightweight_testing(X_train, X_test, y_test):
-    print("testing the perceptron algorithm on MNIST dataset")
-    errors = []
-
-    for kernel_degree in range(1, 6):
-        same_kernel_errors = []
-
-        # from 0.1 to 0.9
-        print("epoch: from 0.1 to 0.9")
-        for i in tqdm(range(1, 10)):
-            same_kernel_errors.append(load_and_test(
-                X_train, X_test, y_test, i / 10, kernel_degree))
-
-        # from 1 to 9
-        print("epoch: from 1 to 9")
-        for i in tqdm(range(1, 10)):
-            same_kernel_errors.append(load_and_test(
-                X_train, X_test, y_test, i, kernel_degree))
-
-        # 10 the last width kernel 1
-        print("epoch: 10")
-        for i in tqdm(range(10, 11)):
-            same_kernel_errors.append(load_and_test(
-                X_train, X_test, y_test, i, kernel_degree))
-
-        # from 20 to 30
-        print("epoch: from 20 to 30")
-        for i in tqdm(range(20, 40, 10)):
-            same_kernel_errors.append(load_and_test(
-                X_train, X_test, y_test, i, kernel_degree))
-        errors.append(same_kernel_errors)
-
-    return errors
-
-
-def lightweight_experiment():
-    md = MnistDataset()
-    # split data
-    X_train, y_train = md.train_dataset()
-
-    X_test, y_test = md.test_dataset()
-
-    lightweight_training(X_train, y_train)
-
-    errors = lightweight_testing(X_train, X_test, y_test)
-
-    """ error_random = []
-    error_last = []
-    error_avg = []
-    error_vote = []
-    kernel = 4
-
-    print("epoch: from 0.1 to 0.9 kernel:{}".format(kernel))
-    x1 = np.arange(0.1, 1, 0.1)
-    x2 = np.arange(1, 11)
-    for i in tqdm(x1):
-        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-        error_random.append(e_r)
-        error_last.append(e_l)
-        error_avg.append(e_a)
-        error_vote.append(e_v)
-    print("epoch: from 1 to 10 kernel:{}".format(kernel))
-    for i in tqdm(x2):
-        e_r, e_l, e_a, e_v = load_and_test(X_train, X_test, y_test, i, kernel)
-        error_random.append(e_r)
-        error_last.append(e_l)
-        error_avg.append(e_a)
-        error_vote.append(e_v)
-
-    log_plot(np.concatenate((x1, x2)), error_random, error_last, error_avg, error_vote, kernel) """
+    return error_random, error_last, error_avg, error_vote
+# plot function
 
 
 def simple_plot(errors, x, kernel_degree):

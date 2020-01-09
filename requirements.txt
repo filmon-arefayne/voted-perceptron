@@ -1,7 +1,6 @@
 numpy
 tqdm
 numba
-pandas
 matplotlib
 scipy
 joblib
