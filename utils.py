@@ -23,7 +23,8 @@ from matplotlib.ticker import ScalarFormatter
 from high_performance import (
     predictions,
     highest_score_arg,
-    fit
+    fit,
+    gram_predictions
 )
 # _________________________________________________________________________________
 # Progress Bar
@@ -135,6 +136,7 @@ class Pretrained:
 # _________________________________________________________________________________
 # Experiment utils
 
+
 def test_error(X, models, test, label, kernel_degree):
     scores_random = np.empty(test.shape[0])
     scores_last = np.empty(test.shape[0])
@@ -171,14 +173,16 @@ def test_error(X, models, test, label, kernel_degree):
 def n_mistakes(models):
     m = 0
     for o in range(10):
-        m = m + models[o,3]
+        m = m + models[o, 3]
     return m
+
 
 def n_supvect(models):
     s_v = 0
     for o in range(10):
-        s_v = s_v + models[o,1].shape[0]
+        s_v = s_v + models[o, 1].shape[0]
     return s_v
+
 
 def save_models(models, epoch, kernel_degree):
     # print("saving models in models/...")
@@ -212,8 +216,6 @@ def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     perc_v = e_v * 100
     # print("{0:.2f}".format(perc))
     return perc_r, perc_l, perc_a, perc_v
-
-
 
 
 # gram test error
@@ -252,12 +254,17 @@ def gram_test_error(X, models, test, label, kernel_degree):
 # plot function
 
 
-def simple_plot(errors, x, kernel_degree):
-    plt.style.use('seaborn')
-    plt.plot(x, errors, label='last(unorm)')
-    plt.xlabel('Epoch')
-    plt.ylabel('Test Error')
-    plt.title('d={}'.format(kernel_degree))
+def simple_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111)
+    ax.plot(x, error_random, label='random(unorm)')
+    ax.plot(x, error_last, label='last(unorm)')
+    ax.plot(x, error_avg, label='avg(unorm)')
+    ax.plot(x, error_vote, label='vote')
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.set_title('d={}'.format(kernel_degree))
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Test Error')
     plt.legend()
     plt.show()
 
@@ -272,10 +279,10 @@ def log_plot(x, error_random, error_last, error_avg, error_vote, kernel_degree):
     plt.style.use('seaborn')
     fig = plt.figure(figsize=(10, 6))
     ax = fig.add_subplot(111)
-    ax.plot(x, error_random, label='random(unorm)')
-    ax.plot(x, error_last, label='last(unorm)')
-    ax.plot(x, error_avg, label='avg(unorm)')
-    ax.plot(x, error_vote, label='vote')
+    ax.semilogx(x, error_random, label='random(unorm)')
+    ax.semilogx(x, error_last, label='last(unorm)')
+    ax.semilogx(x, error_avg, label='avg(unorm)')
+    ax.semilogx(x, error_vote, label='vote')
     ax.xaxis.set_major_formatter(ScalarFormatter())
     ax.set_title('d={}'.format(kernel_degree))
     ax.set_xlabel('Epoch')

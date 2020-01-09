@@ -26,7 +26,6 @@ high_performace.py
     """
 
 
-
 import numpy as np
 from numba import njit, prange
 from math import copysign
@@ -99,15 +98,15 @@ def train(X, y, epochs, kernel_degree):
                 # reset #C_k+1 = 1
                 weight = 1
                 mistakes = mistakes + 1
-        
+
     c = np.append(c, np.array([weight]), axis=0)
     c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
 
 
-@njit#(parallel=True)
+@njit  # (parallel=True)
 def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
-    v_x = np.empty(v_train_indices.shape[0], dtype=np.float64)
+    v_x = np.empty(v_train_indices.shape[0], dtype=np.float32)
     # the first dot_product is y0 = 1 *polynomial_expansion(x0 = 0_vect,x)
     v_x[0] = polynomial_expansion(np.zeros(X.shape[1]), x, kernel_degree)
     for k in range(1, v_train_indices.shape[0]):
@@ -118,9 +117,9 @@ def implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree):
     return v_x
 
 
-@njit#(parallel=True)
+@njit  # (parallel=True)
 def implicit_form_v(X, v_train_indices, v_label_coeffs):
-    v = np.empty(v_train_indices.shape[0], dtype=np.float64)
+    v = np.empty(v_train_indices.shape[0], dtype=np.float32)
     # v0
     v[0] = 0
     # the first product is y0 = 1 * x0 = 0_vect
@@ -232,19 +231,17 @@ def random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree)
     t = np.sum(c)
     # time slice
     r = np.random.randint(t + 1)
-    rl_sum  = 0
+    rl_sum = 0
     rl = 1
-    for i in range(1,c.shape[0]):
-      if rl_sum > r:
-        break
-      rl_sum = rl_sum + c[i]
-      rl = rl + 1
+    for i in range(1, c.shape[0]):
+        if rl_sum > r:
+            break
+        rl_sum = rl_sum + c[i]
+        rl = rl + 1
     rl = rl - 1
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)[rl]
     return score
-
-
 
 
 @njit
@@ -263,13 +260,13 @@ def random_normalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)
 
-    rl_sum  = 0
+    rl_sum = 0
     rl = 1
-    for i in range(1,c.shape[0]):
-      if rl_sum > r:
-        break
-      rl_sum = rl_sum + c[i]
-      rl = rl + 1
+    for i in range(1, c.shape[0]):
+        if rl_sum > r:
+            break
+        rl_sum = rl_sum + c[i]
+        rl = rl + 1
     rl = rl - 1
     score = implicit_form_product(
         X, v_train_indices, v_label_coeffs, x, kernel_degree)[rl]
@@ -292,14 +289,14 @@ def highest_score(s):
 
 # not numba
 def fit(X, y, epoch, kernel_degree):
-    return Parallel(n_jobs=4,prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
+    return Parallel(n_jobs=4, prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
 
 
 @njit
 def model(X, y, class_type, epoch, kernel_degree):
     y = np.where(y == class_type, 1, -1)
     if epoch < 1:
-        # contiguous arrays
+            # contiguous arrays
         fraction_x = X[0:int(X.shape[0] * epoch),
                        :].copy()
         fraction_y = y[0:int(X.shape[0] * epoch)].copy()
@@ -326,23 +323,24 @@ def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 # for the kernel matrix
 @njit
 def gram_build(X, kernel_degree):
-  Gram = np.zeros((X.shape[0],X.shape[0]), dtype=np.float32)
-  for i in range(Gram.shape[0]):
-    for j in range(i,Gram.shape[0]):
-        if i <= j:
-            Gram[i,j] = polynomial_expansion(X[i], X[j], kernel_degree)
-            Gram[j,i] = Gram[i,j]
-  return Gram
+    Gram = np.zeros((X.shape[0], X.shape[0]), dtype=np.float32)
+    for i in range(Gram.shape[0]):
+        for j in range(i, Gram.shape[0]):
+            if i <= j:
+                Gram[i, j] = polynomial_expansion(X[i], X[j], kernel_degree)
+                Gram[j, i] = Gram[i, j]
+    return Gram
+
 
 def gram_fit(X, y, epoch, kernel_degree):
-    return Parallel(n_jobs=2,prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
+    return Parallel(n_jobs=2, prefer="threads")(delayed(model)(X, y, i, epoch, kernel_degree) for i in range(10))
 
 
 @njit
 def gram_model(X, y, class_type, epoch, kernel_degree):
     y = np.where(y == class_type, 1, -1)
     if epoch < 1:
-        # contiguous arrays
+            # contiguous arrays
         fraction_x = X[0:int(X.shape[0] * epoch),
                        :].copy()
         fraction_y = y[0:int(X.shape[0] * epoch)].copy()
@@ -358,9 +356,12 @@ def gram_predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gr
         X, v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)
     s_avg = gram_avg_unnormalized(
         X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index)
-    s_vote = gram_vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index)
+    s_vote = gram_vote(X, v_train_indices, v_label_coeffs,
+                       c, x, kernel_degree, gram_index)
 
     return np.array([s_random, s_last, s_avg, s_vote])
+
+
 @njit
 def gram_train(X, y, epochs, kernel_degree):
     v_train_indices = np.array([0], dtype=np.int64)
@@ -368,12 +369,12 @@ def gram_train(X, y, epochs, kernel_degree):
     c = np.array([0], dtype=np.int64)
     weight = 0
     mistakes = 0
-    
+
     for _ in range(epochs):
         for i in range(X.shape[0]):
             xi = X[i]
             label = y[i]
-            
+
             y_hat = copysign(1, gram_implicit_form_product(
                 X, v_train_indices, v_label_coeffs, xi, kernel_degree, i)[-1])
             if y_hat == label:
@@ -391,35 +392,42 @@ def gram_train(X, y, epochs, kernel_degree):
     c = c[1:c.shape[0]]
     return v_train_indices, v_label_coeffs, c, mistakes
 
+
 @njit
 def gram_implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree, gram_index):
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float32)
-    v_x[0] = polynomial_expansion(np.zeros(X.shape[1],dtype=np.float32), x, kernel_degree)
+    v_x[0] = polynomial_expansion(
+        np.zeros(X.shape[1], dtype=np.float32), x, kernel_degree)
     assert('Gram_train' in globals())
     for k in range(1, v_train_indices.shape[0]):
         yi = v_label_coeffs[k]
-        v_x[k] = v_x[k - 1] + yi * Gram_train[gram_index,v_train_indices[k]]
+        v_x[k] = v_x[k - 1] + yi * Gram_train[gram_index, v_train_indices[k]]
 
     return v_x
+
+
 @njit
 def gram_test_implicit_form_product(X, v_train_indices, v_label_coeffs, x, kernel_degree, gram_index):
     v_x = np.empty(v_train_indices.shape[0], dtype=np.float32)
-    v_x[0] = polynomial_expansion(np.zeros(X.shape[1],dtype=np.float32), x, kernel_degree)
+    v_x[0] = polynomial_expansion(
+        np.zeros(X.shape[1], dtype=np.float32), x, kernel_degree)
     assert('Gram_test' in globals())
     for k in range(1, v_train_indices.shape[0]):
         yi = v_label_coeffs[k]
-        v_x[k] = v_x[k - 1] + yi * Gram_test[gram_index,v_train_indices[k]]
-    
+        v_x[k] = v_x[k - 1] + yi * Gram_test[gram_index, v_train_indices[k]]
+
     return v_x
+
 
 @njit
 def gram_last_unnormalized(X, v_train_indices, v_label_coeffs, x, kernel_degree, gram_index):
     """Compute score using the final prediction vector(unnormalized)"""
     """ x: unlabeled instance"""
     score = gram_test_implicit_form_product(X,
-                                  v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)[-1]
+                                            v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)[-1]
 
     return score
+
 
 @njit
 def gram_vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index):
@@ -427,7 +435,7 @@ def gram_vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_inde
     """ x: unlabeled instance"""
 
     dot_products = gram_test_implicit_form_product(X,
-                                         v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)
+                                                   v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)
 
     s = np.empty(v_train_indices.shape[0])
     s[0] = 0
@@ -438,13 +446,14 @@ def gram_vote(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_inde
 
     return np.sum(s)
 
+
 @njit
 def gram_avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index):
     """Compute score using an average of the prediction vectors"""
     """ x: unlabeled instance"""
 
     dot_products = gram_test_implicit_form_product(X,
-                                         v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)
+                                                   v_train_indices, v_label_coeffs, x, kernel_degree, gram_index)
 
     s = np.empty(v_train_indices.shape[0])
     s[0] = 0
@@ -454,6 +463,7 @@ def gram_avg_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degre
         s[i] = weight * v_x
 
     return np.sum(s)
+
 
 @njit
 def gram_random_unnormalized(X, v_train_indices, v_label_coeffs, c, x, kernel_degree, gram_index):
