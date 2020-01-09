@@ -51,5 +51,5 @@ To get the pretrained models you will need to fetch the data from the submodule:
 
 ## Acknowledgments
 
-* I would like to thank [Fred Foo](https://stackoverflow.com/questions/17720151/how-to-speed-up-kernelize-perceptron-using-parallelization) for suggesting how to compute the Gram Matrix that i used for the [Google Colab](https://colab.research.google.com/) and [dough](ttps://stackoverflow.com/questions/9478791/is-there-an-enhanced-numpy-scipy-dot-method) for explaining me about Scipy dot method.
+* I would like to thank [Fred Foo](https://stackoverflow.com/questions/17720151/how-to-speed-up-kernelize-perceptron-using-parallelization) for suggesting how to compute the Gram Matrix that i used for the [Google Colab](https://colab.research.google.com/) and [dough](https://stackoverflow.com/questions/9478791/is-there-an-enhanced-numpy-scipy-dot-method) for explaining me about Scipy dot method.
 
