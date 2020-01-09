@@ -1,5 +1,5 @@
 # voted-perceptron
-
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/Filmon97/voted-perceptron/blob/master/voted-perceptron.ipynb)
 In this repo , we try to reproduce some of the results reported in section 5 of the Freund and Schapire 1999 article (in particular the graphs for d = 1 and d = 2 in Figure 2).
 
 ### Paper implemented  
