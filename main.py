@@ -3,7 +3,8 @@ from utils import(
     tqdm,
     load_and_test,
     log_plot,
-    load_models
+    load_models,
+    train_and_store
 )
 import numpy as np
 
@@ -14,6 +15,25 @@ if __name__ == "__main__":
     X_train, y_train = md.train_dataset()
 
     X_test, y_test = md.test_dataset()
+    
+    # change this to True if you don't wont to use pretrained models
+    train = False 
+
+    if train:
+        kernel = 1
+        x1 = np.arange(0.1, 1, 0.1)
+        for i in tqdm(x1):
+            train_and_store(X_train, y_train, i, kernel)
+        x1 = np.arange(1,11)
+        for i in tqdm(x1):
+            train_and_store(X_train, y_train, i, kernel)
+        kernel = 2
+        x1 = np.arange(0.1, 1, 0.1)
+        for i in tqdm(x1):
+            train_and_store(X_train, y_train, i, kernel)
+        x1 = np.arange(1,31)
+        for i in tqdm(x1):
+            train_and_store(X_train, y_train, i, kernel)
 
     error_random = []
     error_last = []

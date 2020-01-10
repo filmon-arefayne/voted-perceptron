@@ -322,14 +322,22 @@ def predictions(X, v_train_indices, v_label_coeffs, c, x, kernel_degree):
 
 # for the kernel matrix
 @njit
-def gram_build(X, kernel_degree):
-    Gram_train = np.zeros((X.shape[0], X.shape[0]), dtype=np.float32)
-    for i in range(Gram_train.shape[0]):
-        for j in range(i, Gram_train.shape[0]):
+def gram_train_build(X,Y, kernel_degree):
+    Gram = np.zeros((X.shape[0], Y.shape[0]), dtype=np.float32)
+    for i in range(Gram.shape[0]):
+        for j in range(i, Gram.shape[0]):
             if i <= j:
-                Gram_train[i, j] = polynomial_expansion(X[i], X[j], kernel_degree)
-                Gram_train[j, i] = Gram_train[i, j]
-    return Gram_train
+                Gram[i, j] = polynomial_expansion(X[i], Y[j], kernel_degree)
+                Gram[j, i] = Gram[i, j]
+    return Gram
+
+@njit
+def gram_test_build(X,Y, kernel_degree):
+    Gram = np.zeros((X.shape[0], Y.shape[0]), dtype=np.float32)
+    for i in range(Gram.shape[0]):
+        for j in range(Gram.shape[1]):
+                Gram[i, j] = polynomial_expansion(X[i], Y[j], kernel_degree)
+    return Gram
 
 
 def gram_fit(X, y, epoch, kernel_degree):
