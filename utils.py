@@ -221,6 +221,15 @@ def load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
     # print("{0:.2f}".format(perc))
     return perc_r, perc_l, perc_a, perc_v
 
+def gram_load_and_test(X_train, X_test, y_test, epoch, kernel_degree, same=0):
+    models = load_models(epoch, kernel_degree, same)
+    e_r, e_l, e_a, e_v = gram_test_error(
+        X_train, models, X_test, y_test, kernel_degree)
+    perc_r = e_r * 100
+    perc_l = e_l * 100
+    perc_a = e_a * 100
+    perc_v = e_v * 100
+    return perc_r, perc_l, perc_a, perc_v
 
 # gram test error
 def gram_test_error(X, models, test, label, kernel_degree):
