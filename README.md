@@ -42,9 +42,10 @@ To get the pretrained models you will need to fetch the data from the submodule:
 
 `git submodule update`
 
+**Now you need to create a 'model' folder and then copy in it the content of the 'pretrained' folder.**
+
 If you don't wont to use the pretrained models, don't copy the folder and then change the train variable in the main.py to true (**Warning: Computationally  Heavy**)
 
-**Now you need to create a 'model' folder and then copy in it the content of the 'pretrained' folder.**
 
 ## Built With
 * [Numpy](https://numpy.org/) - NumPy is the fundamental package for scientific computing with Python. 
